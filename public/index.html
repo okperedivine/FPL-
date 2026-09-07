@@ -137,11 +137,11 @@ document.querySelectorAll("#quick button").forEach(b=>b.onclick=()=>answer(b.tex
 $("ask").onclick=()=>answer($("query").value);$("query").onkeydown=e=>{if(e.key==="Enter")answer($("query").value)};
 
 function normalizeStandings(d){
-  return (d?.standings?.results||d?.results||[]).map((x,i)=>({rank:x.rank??i+1,entry:x.entry??x.id,name:x.entry_name||x.team_name||x.name||"Team",manager:x.player_name||x.manager_name||"",total:x.total??x.points??0,wins:x.won??x.wins??0,draws:x.drawn??x.draws??0,losses:x.lost??x.losses??0}))
+  return (d?.standings?.results||[]).map((x,i)=>({rank:x.rank??i+1,entry:x.entry,name:x.entry_name||"Team",manager:x.player_name||"",total:x.total??0,wins:x.matches_won??0,draws:x.matches_drawn??0,losses:x.matches_lost??0}))
     .filter(x=>x.entry);
 }
 function normalizeMatches(d){
-  return (d?.matches||[]).map(m=>({id:m.id,event:num(m.event??m.gameweek??m.event_id??m.gw),a:m.entry_1_entry??m.entry_1??m.team_1_entry,b:m.entry_2_entry??m.entry_2??m.team_2_entry,ap:num(m.entry_1_points??m.entry_1_event_total??m.entry_1_total),bp:num(m.entry_2_points??m.entry_2_event_total??m.entry_2_total)})).filter(m=>m.event&&m.a&&m.b);
+  return (d?.matches||[]).map(m=>({id:m.id,event:num(m.event),a:m.entry_1_entry,b:m.entry_2_entry,ap:num(m.entry_1_points),bp:num(m.entry_2_points)})).filter(m=>m.event&&m.a&&m.b);
 }
 $("loadLeague").onclick=loadLeague;
 async function loadLeague(){
@@ -252,39 +252,4 @@ async function createCup(){
 }
 function matchHTML(m){
   if(!m)return'<div class="match"><div class="row">TBD</div><div class="row">TBD</div></div>';
-  const label=x=>x?.name||"TBD";
-  return`<div class="match"><div class="row ${m.win==="a"?"win":""}"><span>${esc(label(m.a))}</span><b>${m.as??"—"}</b></div><div class="row ${m.win==="b"?"win":""}"><span>${esc(label(m.b))}</span><b>${m.bs??"—"}</b></div></div>`;
-}
-function renderCup(){
-  const el=$("cupContent");
-  if(!STANDINGS.length){el.innerHTML="<h2>🏆 Supreme Carabao Cup</h2><p class='muted'>Load your H2H league first.</p>";return}
-  if(!CUP){el.innerHTML="<div class='trophy'>🏆</div><h2>Supreme Carabao Cup</h2><p class='muted'>Round 1 uses H2H positions after GW8; later rounds use the locked bracket.</p><button class='btn gold' id='makeCup'>Create Competition</button>";$("makeCup").onclick=createCup;return}
-  const status=`Current GW${GW}. Results are shown only when the required gameweek has data.`;
-  el.innerHTML=`<div class="grid g4"><div class="stat"><small>Round 1</small><b>GW9</b><small>Seeds 13–20</small></div><div class="stat"><small>Round of 16</small><b>GW15</b><small>8 + 8</small></div><div class="stat"><small>Quarterfinal</small><b>GW24</b></div><div class="stat"><small>Final</small><b>GW35</b><small>🏆</small></div></div>
-  <div class="notice" style="margin:14px 0"><b>Rule:</b> cup winners are determined by normal FPL points from the specified gameweek, not H2H league points. A draw uses the better locked pre-round seed as tiebreaker. ${esc(status)}</div>
-  ${CUP.champion?`<div class="champ"><div class="trophy">🏆</div><h2>${esc(CUP.champion.name)}</h2><div class="muted">Champion · GW35</div></div>`:""}
-  <div class="bracket" style="margin-top:15px"><div class="bracketGrid">
-  <div class="round1"><div class="roundTitle">Round 1 · GW9</div>${(CUP.r1||[]).map(matchHTML).join("")}</div>
-  <div class="r16"><div class="roundTitle">Round of 16 · GW15</div>${(CUP.r16||[]).map(matchHTML).join("")}</div>
-  <div class="qf"><div class="roundTitle">Quarterfinal · GW24</div>${(CUP.qf||[]).map(matchHTML).join("")}</div>
-  <div class="sf"><div class="roundTitle">Semifinal · GW29</div>${(CUP.sf||[]).map(matchHTML).join("")}<div class="roundTitle" style="margin-top:40px">Final · GW35</div>${(CUP.final||[]).map(matchHTML).join("")}</div>
-  </div></div>`;
-}
-async function autoRestoreCup(){if(!STANDINGS.length)return;CUP=loadSaved();if(CUP){await advanceCup()}else renderCup()}
-async function answer(q){
-  q=q.trim();if(!q)return;botSay(q,"user");$("query").value="";
-  if(!STANDINGS.length){botSay("Load the H2H league first so I have the teams and manager IDs.");return}
-  const l=q.toLowerCase();
-  if(l.includes("carabao")||l.includes("bracket")||l.includes("round 1")){await createCup();return}
-  if(l.includes("winning")||l.includes("consecutive win")){botSay(streak("W","winning"));return}
-  if(l.includes("losing")||l.includes("consecutive loss")){botSay(streak("L","losing"));return}
-  if(l.includes("unbeaten")){botSay(streakGeneric(v=>v==="W"||v==="D","unbeaten"));return}
-  if(l.includes("last month")){try{botSay(await lastMonth())}catch(e){botSay("I couldn't retrieve the manager histories: "+e.message)}return}
-  if(l.includes("top")||l.includes("standing")){botSay("Current H2H top 10:\n"+STANDINGS.slice(0,10).map(t=>`${t.rank}. ${t.name} — ${t.total} pts (${t.wins}W ${t.draws}D ${t.losses}L)`).join("\n"));return}
-  botSay("Try: “longest winning streak”, “longest losing streak”, “longest unbeaten run”, “most points last month”, “show top 10”, or “create Carabao bracket”.");
-}
-$("leagueId").value=localStorage.getItem("supreme_h2h_id")||"";
-renderButtons();renderCup();loadBase();
-</script>
-</body>
-</html>
+  const label=x=>
