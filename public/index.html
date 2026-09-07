@@ -356,8 +356,8 @@ const botMessages=[];
 function botSay(text,who="bot"){const idx=botMessages.push([who,text])-1;renderChat();return idx}
 function botReplace(idx,text){if(botMessages[idx])botMessages[idx][1]=text;renderChat()}
 function renderChat(){$("chat").innerHTML=botMessages.map(x=>`<div class="bubble ${x[0]}">${esc(x[1])}</div>`).join("");$("chat").scrollTop=$("chat").scrollHeight}
-botSay("Welcome. Load your H2H league, then ask me things like \"predict who finishes top\", \"compare TeamA and TeamB\", streaks, form, or the Carabao Cup bracket — all computed live from your real league data, free.");
-$("quick").innerHTML=["Predict who finishes top","Compare two teams","Easiest run of fixtures","Longest winning streak","Most points last month","Create Carabao bracket"].map(x=>`<button>${x}</button>`).join("");
+botSay("Welcome. Load your H2H league, then ask me things like \"predict who finishes top\", \"compare TeamA and TeamB\", streaks, form, or the Carabao Cup bracket — all computed live from your real league data, free. Type \"help\" any time to see everything I understand.");
+$("quick").innerHTML=["Predict who finishes top","Compare two teams","Easiest run of fixtures","Longest winning streak","Most points last month","Create Carabao bracket","Help"].map(x=>`<button>${x}</button>`).join("");
 document.querySelectorAll("#quick button").forEach(b=>b.onclick=()=>answer(b.textContent==="Compare two teams"?`compare ${STANDINGS[0]?.name||"TeamA"} and ${STANDINGS[1]?.name||"TeamB"}`:b.textContent));
 $("ask").onclick=()=>answer($("query").value);$("query").onkeydown=e=>{if(e.key==="Enter")answer($("query").value)};
 $("query").placeholder="Ask about your league…";
@@ -590,22 +590,56 @@ function renderCup(){
   </div></div>`;
 }
 async function autoRestoreCup(){if(!STANDINGS.length)return;CUP=loadSaved();if(CUP){await advanceCup()}else renderCup()}
+const HELP_TEXT="Here's everything I can do, free, from your real league data:\n\n"
+  +"• \"predict who finishes top\" / \"who's going to win\" / \"strongest team\" — power ranking\n"
+  +"• \"compare TeamA and TeamB\" / \"TeamA vs TeamB\" — head-to-head breakdown\n"
+  +"• \"easiest run of fixtures\" / \"who has the hardest fixtures\" — schedule outlook\n"
+  +"• \"longest winning streak\" / \"losing streak\" / \"unbeaten run\" — streaks\n"
+  +"• \"most points last month\" — recent form leaderboard\n"
+  +"• \"show the table\" / \"who's top\" / \"who's bottom\" — standings\n"
+  +"• \"create Carabao bracket\" — cup bracket\n"
+  +"• just type a team or manager name — a quick summary of that team\n\n"
+  +"I'm a free rule-based bot, not a general AI, so I look for phrases like these rather than understanding truly anything you type.";
+function greetingReply(){
+  const hour=new Date().getHours();
+  const g=hour<12?"Morning!":hour<18?"Afternoon!":"Evening!";
+  return `${g} ${STANDINGS.length?"Your league is loaded — ask me about the table, a prediction, or two teams to compare.":"Load your H2H league on this tab first, then ask away."} Type "help" to see everything I can answer.`;
+}
 async function answer(q){
   q=q.trim();if(!q)return;botSay(q,"user");$("query").value="";
-  if(!STANDINGS.length){botSay("Load the H2H league first so I have the teams and manager IDs.");return}
-  const l=q.toLowerCase();
-  if(l.includes("carabao")||l.includes("bracket")||l.includes("round 1")){await createCup();return}
-  if(l.includes(" vs ")||l.includes(" versus ")||l.includes("compare")||l.includes("head to head")||l.includes("head-to-head")){if(compareTeams(q)!==false)return}
-  if(l.includes("predict")||l.includes("most likely")||l.includes("who will win")||l.includes("win the league")||l.includes("finish top")||l.includes("finish first")||l.includes("power rank")||l.includes("strongest squad")||l.includes("best squad")||l.includes("best team")||(l.includes("based on")&&(l.includes("form")||l.includes("team")))){await predictTop();return}
-  if(l.includes("fixture")||l.includes("easiest run")||l.includes("hardest run")||l.includes("run of games")){await fixtureOutlook();return}
-  if(l.includes("winning")||l.includes("consecutive win")){botSay(streak("W","winning"));return}
-  if(l.includes("losing")||l.includes("consecutive loss")){botSay(streak("L","losing"));return}
-  if(l.includes("unbeaten")){botSay(streakGeneric(v=>v==="W"||v==="D","unbeaten"));return}
-  if(l.includes("last month")){try{botSay(await lastMonth())}catch(e){botSay("I couldn't retrieve the manager histories: "+e.message)}return}
-  if(l.includes("top")||l.includes("standing")){botSay("Current H2H top 10:\n"+STANDINGS.slice(0,10).map(t=>`${t.rank}. ${t.name} — ${t.total} pts (${t.wins}W ${t.draws}D ${t.losses}L)`).join("\n"));return}
+  const l=q.toLowerCase().trim();
+
+  // These work even before a league is loaded.
+  if(/^(hi|hello|hey+|yo|sup|good\s?(morning|afternoon|evening)|howdy|greetings)\b[!.? ]*$/.test(l)||l==="hi claude"){botSay(greetingReply());return}
+  if(l.includes("help")||l.includes("what can you do")||l.includes("what do you do")||l.includes("commands")||l.includes("options")||l==="?"){botSay(HELP_TEXT);return}
+  if(/\b(thanks|thank you|thx|cheers|ta)\b/.test(l)){botSay("Anytime! Ask me anything else about the league.");return}
+
+  if(!STANDINGS.length){botSay("Load the H2H league first (enter your league ID above and hit Load) so I have the teams and manager IDs — then ask away, e.g. \"who's top\" or \"predict who finishes top\".");return}
+
+  if(l.includes("carabao")||l.includes("bracket")||l.includes("cup")||l.includes("round 1")){await createCup();return}
+
+  if(/\bvs\b|\bversus\b/.test(l)||l.includes("compare")||l.includes("head to head")||l.includes("head-to-head")||l.includes("h2h record")||l.includes("who's better")||l.includes("who is better")||l.includes("better team")){if(compareTeams(q)!==false)return}
+
+  if(l.includes("predict")||l.includes("most likely")||l.includes("who will win")||l.includes("who is going to win")||l.includes("who's going to win")||l.includes("gonna win")||l.includes("win the league")||l.includes("win the title")||l.includes("champion")||l.includes("favourite")||l.includes("favorite")||l.includes("finish top")||l.includes("finish first")||l.includes("power rank")||l.includes("strongest squad")||l.includes("strongest team")||l.includes("best squad")||l.includes("best team")||l.includes("in form")||l.includes("in-form")||l.includes("on form")||(l.includes("based on")&&(l.includes("form")||l.includes("team")))){await predictTop();return}
+
+  if(l.includes("fixture")||l.includes("schedule")||l.includes("easiest run")||l.includes("hardest run")||l.includes("run of games")||l.includes("upcoming game")||l.includes("games coming up")||l.includes("next few gw")||l.includes("who do")&&l.includes("play")){await fixtureOutlook();return}
+
+  if(l.includes("winning streak")||l.includes("consecutive win")||l.includes("win streak")||l.includes("hot streak")||l.includes("on a roll")||l.includes("on a run")){botSay(streak("W","winning"));return}
+  if(l.includes("losing streak")||l.includes("consecutive loss")||l.includes("lose streak")||l.includes("cold streak")||l.includes("bad run")||l.includes("losing run")){botSay(streak("L","losing"));return}
+  if(l.includes("unbeaten")||l.includes("undefeated")||l.includes("no losses")){botSay(streakGeneric(v=>v==="W"||v==="D","unbeaten"));return}
+
+  if(l.includes("last month")||l.includes("past month")||l.includes("previous month")){try{botSay(await lastMonth())}catch(e){botSay("I couldn't retrieve the manager histories: "+e.message)}return}
+
+  if(l.includes("bottom")||l.includes("worst team")||l.includes("last place")||l.includes("relegation")){
+    const bottom=[...STANDINGS].sort((a,b)=>a.rank-b.rank).slice(-5).reverse();
+    botSay("📉 Bottom of the table:\n"+bottom.map(t=>`${t.rank}. ${t.name} — ${t.total} pts (${t.wins}W ${t.draws}D ${t.losses}L)`).join("\n"));return
+  }
+  if(l.includes("top")||l.includes("standing")||l.includes("table")||l.includes("leaderboard")||l.includes("first place")||l.includes("leading")||l.includes("rank")){botSay("Current H2H top 10:\n"+STANDINGS.slice(0,10).map(t=>`${t.rank}. ${t.name} — ${t.total} pts (${t.wins}W ${t.draws}D ${t.losses}L)`).join("\n"));return}
+
   const team=findTeam(q);
   if(team){botSay(`${esc(team.name)} (${team.manager||"manager"}): #${team.rank} in H2H, ${team.total} pts, ${team.wins}W ${team.draws}D ${team.losses}L. Ask me to "compare ${team.name} and <another team>" for more, or "predict" for a full power ranking.`);return}
-  botSay("I can't parse totally free-form phrasing without a paid AI model, but I can do a lot for free — try: \"predict who finishes top\", \"compare TeamA and TeamB\", \"easiest run of fixtures\", \"longest winning streak\", \"most points last month\", \"show top 10\", or \"create Carabao bracket\".");
+
+  botSay("I didn't catch a command in that. I'm a free rule-based bot rather than a general AI, so I look for specific phrases — type \"help\" to see the full list, e.g. \"predict who finishes top\", \"compare TeamA and TeamB\", \"who's top of the table\".");
 }
 $("leagueId").value=localStorage.getItem("supreme_h2h_id")||"";
 renderButtons();renderCup();loadBase();
