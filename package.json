@@ -1,0 +1,16 @@
+{
+  "name": "supreme-fpl-hub",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Supreme FPL Hub with a server-side FPL API layer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
