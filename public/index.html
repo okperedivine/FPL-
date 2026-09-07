@@ -177,7 +177,13 @@ function buildTeamFormDifficulty(){
     const last=conceded[id].slice(-6);
     return {id,gaAvg:last.reduce((a,b)=>a+b,0)/last.length,sample:last.length};
   });
-  const ranked=[...stats].sort((a,b)=>a.gaAvg-b.gaAvg); // fewest conceded first = toughest defense
+  // Below 3 finished matches, one fluky scoreline can swing a team's average
+  // by 2+ goals — that's noise, not signal. Rank/weight only the teams with
+  // enough of a sample to trust; everyone else falls back fully to FPL's
+  // own static difficulty (handled in score() via formIdx lookup miss).
+  const MIN_SAMPLE=3;
+  const trusted=stats.filter(s=>s.sample>=MIN_SAMPLE);
+  const ranked=[...trusted].sort((a,b)=>a.gaAvg-b.gaAvg); // fewest conceded first = toughest defense
   const n=ranked.length;
   ranked.forEach((s,i)=>{
     const pct=n>1?i/(n-1):0.5; // 0 = tightest recent defense .. 1 = leakiest
@@ -231,8 +237,19 @@ function score(p,fxIdx,from,count,formIdx){
   const priorQuality=lastGW*1.1+form*2.0+ppg*0.8+xgi*6+ict*0.04; // last-GW output + sustained underlying quality
   const s=priorQuality*(chance/100)*(.5+.5*rel)*fixtureMult*countFactor;
   const next=upcoming.filter(f=>f.event===from); // immediate next gameweek only (could be 0, 1 or 2 fixtures)
+  // Track-record / role signals — these describe *why* a player has scored,
+  // not just how much, so a hot-streak player and a consistently-good one
+  // don't look identical. dreamteam_count and value_season come straight
+  // from FPL's own season totals (not just recent form); set-piece order
+  // fields (1 or 2 = primary/backup taker) mark a durable scoring role that
+  // tends to survive a single bad game, which is what "good to hold" means.
+  const setPieceDuty=[p.corners_and_indirect_freekicks_order,p.direct_freekicks_order,p.penalties_order]
+    .some(o=>o!=null&&o<=2);
+  const valueSeason=num(p.value_season); // FPL's own total-points-per-£m for the whole season
+  const dreamteamCount=num(p.dreamteam_count); // times selected in FPL's official Team of the Week
   return {id:p.id,name:p.web_name,full:`${p.first_name} ${p.second_name}`,team:TEAMS[p.team]?.short_name||"?",pos:POS[p.element_type],
     price,form,ep:epNext,lastGW,xgi,lowSample:mins<180,ease,score:s,value:price?s/price:0,chance,rel,next,run:upcoming,
+    setPieceDuty,valueSeason,dreamteamCount,totalPoints:num(p.total_points),
 
     status:p.status,priceMomentum:num(p.cost_change_event),
     /* Raw (transfers_in - transfers_out) is an absolute headcount, so it
@@ -700,8 +717,21 @@ async function analyzeTeam(id){
   $("teamMsg").textContent="Analyzing team through backend…";$("teamResult").innerHTML="";
   try{
     if(!BS||!ROWS.length) await loadBase();
-    const gw=GW;
-    const [info,picksData]=await Promise.all([getJSON(API+"/entry/"+id),getJSON(API+`/entry/${id}/picks/${gw}`)]);
+    // FPL only exposes a manager's picks for a gameweek once that gameweek's
+    // deadline has passed — this is intentional on FPL's part, to stop
+    // transfer-copying. So a rival's already-made changes for the *next*
+    // gameweek are invisible to everyone (including us) until its deadline
+    // hits. We still try GW+1 first in case it's just become visible; if
+    // not, we fall back to the last known locked squad and say so clearly,
+    // rather than silently showing stale data as if it were current.
+    let gw=GW+1, usedFallback=false, picksData;
+    const info=await getJSON(API+"/entry/"+id);
+    try{
+      picksData=await getJSON(API+`/entry/${id}/picks/${gw}`);
+    }catch{
+      gw=GW; usedFallback=true;
+      picksData=await getJSON(API+`/entry/${id}/picks/${gw}`);
+    }
     const byId=new Map(ROWS.map(r=>[r.id,r]));
     const byPos={};ROWS.forEach(r=>{(byPos[r.pos]??=[]).push(r.score)});
     const squad=(picksData.picks||[]).map(p=>({...p,info:byId.get(p.element)})).filter(p=>p.info);
@@ -714,20 +744,53 @@ async function analyzeTeam(id){
     const rating=Math.round(withPct.reduce((a,p)=>a+p.pct*(p.multiplier>=2?2:1),0)/withPct.reduce((a,p)=>a+(p.multiplier>=2?2:1),0));
     const label=rating>=75?"Elite":rating>=60?"Strong":rating>=40?"Average":rating>=25?"Below average":"Weak";
     const sorted=[...withPct].sort((a,b)=>b.pct-a.pct);
-    const strengths=sorted.slice(0,3).map(p=>`⭐ ${esc(p.info.name)} (${p.info.pos}) — ${p.pct}th percentile for the position, ${fixtureLabel(p.info.ease)}.`);
+    const trackNote=p=>{
+      const bits=[];
+      if(p.info.setPieceDuty)bits.push("on set-piece duty");
+      if(p.info.dreamteamCount>=3)bits.push(`${p.info.dreamteamCount}× Team of the Week`);
+      if(p.info.valueSeason>=8)bits.push(`£${p.info.valueSeason.toFixed(1)} pts/£m all season`);
+      return bits.length?` ${bits.join(", ")}.`:"";
+    };
+    const strengths=sorted.slice(0,3).map(p=>`⭐ ${esc(p.info.name)} (${p.info.pos}) — ${p.pct}th percentile for the position, ${fixtureLabel(p.info.ease)}.${trackNote(p)}`);
     const weakByScore=[...withPct].sort((a,b)=>a.pct-b.pct).slice(0,3);
     const injuryFlags=squad.filter(p=>p.info.chance<75).map(p=>`⚠️ ${esc(p.info.name)} — ${p.info.chance}% chance of playing next round (injury/rotation doubt).`);
     const fixtureFlags=xi.filter(p=>p.info.ease<=2.3).map(p=>`📅 ${esc(p.info.name)} faces ${fixtureLabel(p.info.ease)} over the lookahead window.`);
-    const weaknesses=[...weakByScore.map(p=>`🔻 ${esc(p.info.name)} (${p.info.pos}) — only ${p.pct}th percentile among ${p.info.pos}s right now.`),...injuryFlags,...fixtureFlags].slice(0,6);
+    // A weak-scoring player who's still nailed-on for set pieces or has a
+    // strong season-long record is a "hold through the dip" case, not a
+    // "sell now" case — so that gets said explicitly rather than lumped in
+    // with players who are just underperforming, full stop.
+    const weaknesses=[...weakByScore.map(p=>{
+      const holdCase=p.info.setPieceDuty||p.info.valueSeason>=6;
+      const base=`🔻 ${esc(p.info.name)} (${p.info.pos}) — only ${p.pct}th percentile among ${p.info.pos}s right now.`;
+      return holdCase?`${base} Track record and role suggest this may be a form dip worth riding out rather than an automatic sell —${trackNote(p)}`:base;
+    }),...injuryFlags,...fixtureFlags].slice(0,6);
     const ownedIds=new Set(squad.map(p=>p.element));
     const weakSlots=weakByScore.slice(0,2);
     const suggestions=weakSlots.map(w=>{
       const budget=w.info.price+parseFloat(bank);
-      const cands=ROWS.filter(r=>r.pos===w.info.pos&&!ownedIds.has(r.id)&&r.price<=budget+0.001&&r.score>w.info.score).sort((a,b)=>b.score-a.score).slice(0,3);
+      // Don't recommend replacing a set-piece taker or a proven season-long
+      // performer just because this week's score dipped — but if their own
+      // role/record already earns a "hold" case above, still show upgrade
+      // options; just don't let it look like the only reasonable move.
+      const cands=ROWS.filter(r=>r.pos===w.info.pos&&!ownedIds.has(r.id)&&r.price<=budget+0.001&&r.score>w.info.score)
+        .sort((a,b)=>b.score-a.score).slice(0,3);
       return {out:w.info,budget,cands};
     }).filter(s=>s.cands.length);
-    let sugHTML=suggestions.length?suggestions.map(s=>`<div class="notice" style="margin-bottom:8px"><b>Consider replacing ${esc(s.out.name)}</b> (£${s.out.price.toFixed(1)}m, budget incl. bank ≈£${s.budget.toFixed(1)}m):<br>`+s.cands.map(c=>`→ ${esc(c.name)} (${c.team}) £${c.price.toFixed(1)}m — score ${c.score.toFixed(1)}, ${fixtureLabel(c.ease)}`).join("<br>")+`</div>`).join(""):`<p class="muted">No clear upgrades found within budget for your weakest players right now.</p>`;
-    $("teamMsg").textContent=`Loaded ${teamName}${managerName?" · "+managerName:""} · GW${gw} · Team value £${value}m · Bank £${bank}m`;
+    const candLine=c=>{
+      const bits=[`score ${c.score.toFixed(1)}`,fixtureLabel(c.ease)];
+      if(c.setPieceDuty)bits.push("set-piece duty");
+      if(c.dreamteamCount>=3)bits.push(`${c.dreamteamCount}× ToW`);
+      return `→ ${esc(c.name)} (${c.team}) £${c.price.toFixed(1)}m — ${bits.join(", ")}`;
+    };
+    let sugHTML=suggestions.length?suggestions.map(s=>{
+      const holdWarning=(s.out.setPieceDuty||s.out.valueSeason>=6)
+        ?`<div class="muted" style="font-size:11px;margin-bottom:4px">Note: ${esc(s.out.name)} has a track record/role that argues for patience — weigh that against these options rather than selling on form alone.</div>`:"";
+      return `<div class="notice" style="margin-bottom:8px"><b>Consider replacing ${esc(s.out.name)}</b> (£${s.out.price.toFixed(1)}m, budget incl. bank ≈£${s.budget.toFixed(1)}m):${holdWarning}<br>`+s.cands.map(candLine).join("<br>")+`</div>`;
+    }).join(""):`<p class="muted">No clear upgrades found within budget for your weakest players right now.</p>`;
+    const gwNote=usedFallback
+      ?` · showing GW${gw} (last locked squad — this manager's GW${GW+1} transfers, if any, aren't public until that gameweek's deadline passes)`
+      :` · GW${gw} (next gameweek — already locked in)`;
+    $("teamMsg").textContent=`Loaded ${teamName}${managerName?" · "+managerName:""}${gwNote} · Team value £${value}m · Bank £${bank}m`;
     $("teamResult").innerHTML=`
       <div class="panel"><div class="grid g4">
         <div class="stat"><small>Rating</small><b>${rating}/100</b><small>${label}</small></div>
