@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Supreme FPL Hub</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#06100b;color:#eef7f1;font-family:Inter,Arial,sans-serif}
+:root{--g:#35d07f;--p:#0d1d15;--p2:#11281c;--line:#234a33;--muted:#9db3a5;--gold:#ffd166;--red:#ff7979}
+.wrap{width:min(1400px,94%);margin:auto}.hero{padding:34px 0 20px}.k{color:var(--g);font-size:12px;font-weight:800;letter-spacing:.15em;text-transform:uppercase}.hero h1{font-size:clamp(36px,6vw,64px);margin:8px 0}.hero p{color:var(--muted);line-height:1.6;max-width:900px}.live{font-size:12px;color:#bdd1c4}.dot{display:inline-block;width:8px;height:8px;background:var(--g);border-radius:50%;margin-right:7px}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 18px}.nav button,.btn,.pill{border:1px solid var(--line);background:#0a1710;color:#e8f2eb;border-radius:10px;padding:10px 14px;font-weight:700}.nav button.active,.btn.primary,.pill.active{background:#198a51;border-color:#35d07f}.btn.gold{background:#5e4614;border-color:#a98128}
+.panel{background:linear-gradient(145deg,#102319,#08130d);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 12px 35px #0005}.grid{display:grid;gap:14px}.g2{grid-template-columns:1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}@media(max-width:850px){.g2,.g4{grid-template-columns:1fr}}
+.controls{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}@media(max-width:900px){.controls{grid-template-columns:1fr 1fr}}@media(max-width:550px){.controls{grid-template-columns:1fr}}
+label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bottom:6px}input{width:100%;background:#06100b;color:#fff;border:1px solid var(--line);border-radius:9px;padding:11px}.pills{display:flex;gap:6px;flex-wrap:wrap}
+.tableWrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{width:100%;border-collapse:collapse;min-width:850px}th,td{padding:10px;border-bottom:1px solid #234a3355;text-align:left;font-size:13px}th{font-size:10px;text-transform:uppercase;color:#9fbaaa;background:#10271c}.muted{color:var(--muted)}.score{color:var(--g);font-weight:900}.tag{background:#173a26;padding:4px 7px;border-radius:99px;font-size:10px;font-weight:800}
+.notice{padding:12px;border:1px solid var(--line);background:#0b1911;border-radius:10px;color:#b9cbbf;font-size:13px;line-height:1.5}.stat{border:1px solid var(--line);border-radius:12px;padding:15px;background:#ffffff04}.stat small{color:var(--muted)}.stat b{display:block;font-size:26px;margin-top:4px}
+.chat{height:420px;overflow:auto;display:flex;flex-direction:column;gap:9px}.bubble{padding:11px 13px;border-radius:13px;white-space:pre-wrap;line-height:1.45;max-width:92%}.bot{background:#10271c;border:1px solid var(--line)}.user{background:#198a51;align-self:flex-end}.quick{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.quick button{border:1px solid var(--line);background:#08130d;color:#bdd0c2;border-radius:999px;padding:7px 10px;font-size:11px}.chatbar{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:10px}
+.bracket{overflow:auto}.bracketGrid{display:grid;grid-template-columns:repeat(4,240px);gap:18px;min-width:1000px}.roundTitle{text-align:center;color:var(--gold);font-size:11px;font-weight:900;text-transform:uppercase;margin-bottom:10px}.match{background:#07120c;border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-bottom:18px}.row{display:flex;justify-content:space-between;padding:9px;border-bottom:1px solid #234a3366;font-size:12px}.row:last-child{border:0}.win{background:#35d07f16;color:#dff9e9;font-weight:900}.round1 .match:nth-child(2){margin-top:18px}.round1 .match:nth-child(3){margin-top:36px}.round1 .match:nth-child(4){margin-top:54px}.r16 .match:nth-child(2){margin-top:65px}.r16 .match:nth-child(3){margin-top:65px}.r16 .match:nth-child(4){margin-top:65px}.qf .match:nth-child(2){margin-top:160px}.sf .match{margin-top:160px}.champ{text-align:center;border:1px solid #a98128;background:#211b0b;border-radius:15px;padding:20px}.trophy{font-size:42px}
+.error{color:#ffad9d}.loading{color:#bdd1c4}.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+<div class="k">Fantasy Premier League</div>
+<h1>Supreme FPL Hub</h1>
+<p>Player Investment Board · H2H Analyst · Supreme Carabao Cup · Live backend edition. The Carabao Cup is separate from the Supreme Cup and uses normal FPL points from the relevant gameweek to decide each tie.</p>
+<div id="live" class="live"><span class="dot"></span>Starting app…</div>
+</header>
+<nav class="nav">
+<button data-tab="board" class="active">Player Board</button>
+<button data-tab="h2h">H2H Analyst</button>
+<button data-tab="cup">Supreme Carabao Cup</button>
+</nav>
+
+<section id="board" class="tab">
+<div class="panel">
+<div class="controls">
+<div><label>Position</label><div class="pills" id="pos"></div></div>
+<div><label>Look ahead: <span id="ngwLabel">5</span> GWs</label><input id="ngw" type="range" min="1" max="8" value="5"></div>
+<div><label>Maximum price: £<span id="budgetLabel">15.0</span>m</label><input id="budget" type="range" min="4" max="15" step=".5" value="15"></div>
+<div><label>Sort</label><div class="pills" id="sort"></div></div>
+</div>
+<p class="notice" id="boardNotice">Loading live FPL data…</p>
+</div>
+<div class="tableWrap"><table><thead><tr><th>#</th><th>Player</th><th>Team</th><th>Pos</th><th>£m</th><th>Form</th><th>Next GW</th><th>xGI/90</th><th>Fixtures</th><th>Score</th><th>Value</th></tr></thead><tbody id="players"></tbody></table></div>
+</section>
+
+<section id="h2h" class="tab hidden">
+<div class="grid g2">
+<div class="panel">
+<h2>H2H Analyst</h2><p class="muted">Enter your FPL Head-to-Head league ID.</p>
+<label>League ID</label><input id="leagueId" placeholder="e.g. 123456">
+<button class="btn primary" id="loadLeague" style="margin-top:9px">Load H2H League</button>
+<div id="leagueMsg" class="notice" style="margin-top:10px">No league loaded.</div>
+<div id="standings"></div>
+</div>
+<div class="panel">
+<h2>🤖 H2H Bot</h2>
+<div class="quick" id="quick"></div>
+<div id="chat" class="chat"></div>
+<div class="chatbar"><input id="query" placeholder="Ask the H2H bot…"><button class="btn primary" id="ask">Ask</button></div>
+</div>
+</div>
+</section>
+
+<section id="cup" class="tab hidden">
+<div id="cupContent" class="panel"><div class="trophy">🏆</div><h2>Supreme Carabao Cup</h2><p class="muted">Load your H2H league first.</p></div>
+</section>
+</div>
+
+
+<script>
+"use strict";
+const API="/api";
+const POS={1:"GKP",2:"DEF",3:"MID",4:"FWD"};
+let BS=null,FIX=null,TEAMS={},GW=1,ROWS=[],LEAGUE=null,STANDINGS=[],MATCHES=[],CUP=null;
+let position="ALL",sortKey="score",nGws=5,budget=15;
+
+const $=id=>document.getElementById(id);
+const num=v=>Number.isFinite(parseFloat(v))?parseFloat(v):0;
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+function setLive(t,err=false){$("live").innerHTML='<span class="dot"></span>'+esc(t);$("live").className="live"+(err?" error":"");}
+async function getJSON(url,options={}){
+  const c=new AbortController(),tm=setTimeout(()=>c.abort(),20000);
+  try{
+    const r=await fetch(url,{...options,signal:c.signal,headers:{"Content-Type":"application/json",...(options.headers||{})}});
+    if(!r.ok){let d={};try{d=await r.json()}catch{};throw Error(d.error||`HTTP ${r.status}`)}
+    return await r.json();
+  }finally{clearTimeout(tm)}
+}
+function currentGW(){return BS?.events?.find(e=>e.is_current)?.id||Math.max((BS?.events?.find(e=>e.is_next)?.id||2)-1,1)}
+function fixtureAverages(from,count){
+  let d={}; if(!FIX)return d;
+  FIX.forEach(f=>{if(f.event<from||f.event>from+count-1)return;(d[f.team_h]??=[]).push(num(f.team_h_difficulty));(d[f.team_a]??=[]).push(num(f.team_a_difficulty))});
+  return Object.fromEntries(Object.entries(d).map(([k,v])=>[k,v.reduce((a,b)=>a+b,0)/v.length]));
+}
+function score(p,avg){
+  const price=num(p.now_cost)/10,form=num(p.form),ppg=num(p.points_per_game),ep=num(p.ep_next),xgi=num(p.expected_goal_involvements_per_90),ict=num(p.ict_index);
+  const chance=p.chance_of_playing_next_round==null?100:num(p.chance_of_playing_next_round),mins=num(p.minutes),starts=num(p.starts);
+  const rel=starts?Math.min(mins/(starts*90+1),1):mins?1:.3,ease=5-(avg[p.team]??3);
+  const s=(form*2.2+ppg+ep*1.6+xgi*6+ict*.05+ease*1.3)*(chance/100)*(.5+.5*rel);
+  return {id:p.id,name:p.web_name,full:`${p.first_name} ${p.second_name}`,team:TEAMS[p.team]?.short_name||"?",pos:POS[p.element_type],price,form,ep,xgi,ease,score:s,value:price?s/price:0}
+}
+function renderButtons(){
+  $("pos").innerHTML=["ALL","GKP","DEF","MID","FWD"].map(x=>`<button class="pill ${position===x?"active":""}" data-pos="${x}">${x}</button>`).join("");
+  $("sort").innerHTML=[["score","Score"],["value","Value/£m"],["form","Form"],["ep","Next GW"]].map(x=>`<button class="pill ${sortKey===x[0]?"active":""}" data-sort="${x[1]}">${x[1]}</button>`.replace('data-sort="'+x[1]+'"','data-sort="'+x[0]+'"')).join("");
+  document.querySelectorAll("[data-pos]").forEach(b=>b.onclick=()=>{position=b.dataset.pos;renderButtons();renderPlayers()});
+  document.querySelectorAll("[data-sort]").forEach(b=>b.onclick=()=>{sortKey=b.dataset.sort;renderButtons();renderPlayers()});
+}
+function renderPlayers(){
+  const list=ROWS.filter(p=>(position==="ALL"||p.pos===position)&&p.price<=budget).sort((a,b)=>b[sortKey]-a[sortKey]).slice(0,50);
+  $("players").innerHTML=list.map((p,i)=>`<tr><td>${i+1}</td><td><b>${esc(p.name)}</b><div class="muted">${esc(p.full)}</div></td><td>${esc(p.team)}</td><td><span class="tag">${p.pos}</span></td><td>${p.price.toFixed(1)}</td><td>${p.form.toFixed(1)}</td><td>${p.ep.toFixed(1)}</td><td>${p.xgi.toFixed(2)}</td><td>${p.ease>=3.3?"Easy":p.ease<=2.3?"Hard":"Mixed"}</td><td class="score">${p.score.toFixed(1)}</td><td>${p.value.toFixed(2)}</td></tr>`).join("");
+}
+async function loadBase(){
+  setLive("Connecting to Supreme FPL backend…");
+  try{
+    [BS,FIX]=await Promise.all([getJSON(API+"/bootstrap"),getJSON(API+"/fixtures")]);
+    TEAMS=Object.fromEntries(BS.teams.map(t=>[t.id,t]));GW=currentGW();
+    const avg=fixtureAverages(GW+1,nGws);ROWS=BS.elements.filter(p=>POS[p.element_type]).map(p=>score(p,avg));
+    $("boardNotice").textContent=`Live data loaded through the backend · Current GW${GW}; investment scoring looks ahead from GW${GW+1}.`;
+    setLive("Live FPL data loaded · "+new Date().toLocaleTimeString());renderPlayers();autoRestoreCup();
+  }catch(e){
+    setLive("Backend/API connection failed",true);
+    $("boardNotice").innerHTML=`<span class="error">${esc(e.message)}</span><br>Make sure this app is running from its Node server, not as a downloaded HTML file.`;
+  }
+}
+$("ngw").oninput=e=>{nGws=+e.target.value;$("ngwLabel").textContent=nGws;if(BS){ROWS=BS.elements.filter(p=>POS[p.element_type]).map(p=>score(p,fixtureAverages(GW+1,nGws)));renderPlayers()}};
+$("budget").oninput=e=>{budget=+e.target.value;$("budgetLabel").textContent=budget.toFixed(1);renderPlayers()};
+document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tab").forEach(x=>x.classList.add("hidden"));$(b.dataset.tab).classList.remove("hidden")});
+
+const botMessages=[];
+function botSay(text,who="bot"){botMessages.push([who,text]);$("chat").innerHTML=botMessages.map(x=>`<div class="bubble ${x[0]}">${esc(x[1])}</div>`).join("");$("chat").scrollTop=$("chat").scrollHeight}
+botSay("Welcome. Load your H2H league, then ask me for streaks, last-month points, standings, or the Supreme Carabao Cup bracket.");
+$("quick").innerHTML=["Longest winning streak","Longest losing streak","Longest unbeaten run","Most points last month","Show top 10","Create Carabao bracket"].map(x=>`<button>${x}</button>`).join("");
+document.querySelectorAll("#quick button").forEach(b=>b.onclick=()=>answer(b.textContent));
+$("ask").onclick=()=>answer($("query").value);$("query").onkeydown=e=>{if(e.key==="Enter")answer($("query").value)};
+
+function normalizeStandings(d){
+  return (d?.standings?.results||[]).map((x,i)=>({rank:x.rank??i+1,entry:x.entry,name:x.entry_name||"Team",manager:x.player_name||"",total:x.total??0,wins:x.matches_won??0,draws:x.matches_drawn??0,losses:x.matches_lost??0}))
+    .filter(x=>x.entry);
+}
+function normalizeMatches(d){
+  return (d?.matches||[]).map(m=>({id:m.id,event:num(m.event),a:m.entry_1_entry,b:m.entry_2_entry,ap:num(m.entry_1_points),bp:num(m.entry_2_points)})).filter(m=>m.event&&m.a&&m.b);
+}
+$("loadLeague").onclick=loadLeague;
+async function loadLeague(){
+  const id=$("leagueId").value.trim();if(!id){$("leagueMsg").textContent="Enter a league ID.";return}
+  localStorage.setItem("supreme_h2h_id",id);$("leagueMsg").textContent="Loading league through backend…";
+  try{
+    LEAGUE=await getJSON(API+"/h2h/"+encodeURIComponent(id));STANDINGS=normalizeStandings(LEAGUE);MATCHES=normalizeMatches(LEAGUE);
+    if(!STANDINGS.length)throw Error("No teams returned. Check the H2H league ID.");
+    $("leagueMsg").textContent=`Loaded ${LEAGUE.league?.name||"H2H league"} · ${STANDINGS.length} teams · ${LEAGUE.pagesFetched||1} match page(s)`;
+    renderStandings();renderCup();
+  }catch(e){$("leagueMsg").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
+}
+function renderStandings(){
+  STANDINGS.sort((a,b)=>a.rank-b.rank);
+  $("standings").innerHTML='<h3>Current standings</h3><div class="tableWrap"><table style="min-width:520px"><thead><tr><th>#</th><th>Team</th><th>Pts</th><th>W-D-L</th></tr></thead><tbody>'+STANDINGS.map(t=>`<tr><td>${t.rank}</td><td><b>${esc(t.name)}</b><div class="muted">${esc(t.manager)}</div></td><td>${t.total}</td><td>${t.wins}-${t.draws}-${t.losses}</td></tr>`).join("")+'</tbody></table></div>';
+}
+function preGW(gw){
+  const base=STANDINGS.map(t=>({...t,total:0,wins:0,draws:0,losses:0})),m=Object.fromEntries(base.map(t=>[String(t.entry),t]));
+  MATCHES.filter(x=>x.event<gw).forEach(x=>{const a=m[String(x.a)],b=m[String(x.b)];if(!a||!b)return;if(x.ap>x.bp){a.total+=3;a.wins++ ;b.losses++}else if(x.bp>x.ap){b.total+=3;b.wins++;a.losses++}else{a.total++;b.total++;a.draws++;b.draws++}});
+  return base.sort((a,b)=>b.total-a.total||a.rank-b.rank).map((x,i)=>({...x,seed:i+1}));
+}
+function resultsFor(entry){return MATCHES.filter(m=>String(m.a)===String(entry)||String(m.b)===String(entry)).sort((a,b)=>a.event-b.event).map(m=>m.ap===m.bp?"D":String(m.a)===String(entry)?(m.ap>m.bp?"W":"L"):(m.bp>m.ap?"W":"L"))}
+function streak(type,label){let best={len:0,t:null};STANDINGS.forEach(t=>{let c=0;for(const r of resultsFor(t.entry)){if(r===type){c++;if(c>best.len)best={len:c,t}}else c=0}});return best.t?`🔥 Longest ${label} streak: ${best.t.name} — ${best.len} games.`:"I couldn't calculate it from the returned match history."}
+function streakGeneric(ok,label){let best={len:0,t:null};STANDINGS.forEach(t=>{let c=0;for(const r of resultsFor(t.entry)){if(ok(r)){c++;if(c>best.len)best={len:c,t}}else c=0}});return best.t?`🔥 Longest ${label} run: ${best.t.name} — ${best.len} games.`:"I couldn't calculate it from the returned match history."}
+async function lastMonth(){
+  if(!BS)return"Live FPL data is not loaded yet.";
+  const d=new Date(),a=new Date(d.getFullYear(),d.getMonth()-1,1),b=new Date(d.getFullYear(),d.getMonth(),0,23,59,59);
+  const vals=[];
+  const histories=await getJSON(API+"/histories",{method:"POST",body:JSON.stringify({entryIds:STANDINGS.map(t=>t.entry)})});
+  for(const t of STANDINGS){let pts=0;for(const g of (histories[t.entry]?.current||[])){const ev=BS.events.find(e=>e.id===g.event);if(ev&&new Date(ev.deadline_time)>=a&&new Date(ev.deadline_time)<=b)pts+=num(g.points)}vals.push([t.name,pts])}
+  vals.sort((x,y)=>y[1]-x[1]);return"📅 Most FPL points last month:\n"+vals.slice(0,5).map((x,i)=>`${i+1}. ${x[0]} — ${x[1]}`).join("\n");
+}
+
+const CUP_RULES={r1:9,r16:15,qf:24,sf:29,final:35};
+function stateKey(){return "supreme_carabao_"+($("leagueId").value.trim()||"unknown")}
+function saveCup(){localStorage.setItem(stateKey(),JSON.stringify(CUP))}
+function loadSaved(){try{return JSON.parse(localStorage.getItem(stateKey())||"null")}catch{return null}}
+function pairR1(a){return [[a[0],a[7]],[a[1],a[6]],[a[2],a[5]],[a[3],a[4]]]}
+function makeMatch(a,b,round){return {a,b,round,status:"pending",as:null,bs:null,win:null}}
+function teamByEntry(id){return STANDINGS.find(t=>String(t.entry)===String(id))}
+function lockedSeedTable(){
+  const pre=preGW(9);
+  return pre.map((t,i)=>({...t,seed:i+1}));
+}
+function initialCup(){
+  const seeds=lockedSeedTable();
+  if(seeds.length<20)throw Error("The Carabao Cup requires a 20-team H2H league.");
+  const bottom=seeds.slice(12,20), top12=seeds.slice(0,12);
+  const r1=pairR1(bottom).map(([a,b])=>makeMatch(a,b,9));
+  return {rules:CUP_RULES,seeds,top12,r1,r16:null,qf:null,sf:null,final:null,champion:null};
+}
+async function resolveMatches(matches,gw){
+  if(!matches?.length)return [];
+  const ids=[...new Set(matches.flatMap(m=>[m.a?.entry,m.b?.entry]).filter(Boolean))];
+  const histories=await getJSON(API+"/histories",{method:"POST",body:JSON.stringify({entryIds:ids})});
+  return matches.map(m=>{
+    const ap=(histories[m.a.entry]?.current||[]).find(x=>x.event===gw)?.points;
+    const bp=(histories[m.b.entry]?.current||[]).find(x=>x.event===gw)?.points;
+    if(ap==null||bp==null)return {...m,status:"waiting",as:ap??null,bs:bp??null};
+    const win=ap>bp?"a":bp>ap?"b":(m.a.seed<m.b.seed?"a":"b");
+    return {...m,status:"complete",as:ap,bs:bp,win};
+  });
+}
+function winner(m){return m?.status==="complete"&&m.win?m[m.win]:null}
+function nextPair(a,b){return makeMatch(a,b,a.seed<b.seed?a.seed:b.seed)}
+async function advanceCup(){
+  if(!CUP) CUP=initialCup();
+  const now=GW;
+  if(now>=9 && CUP.r1.some(m=>m.status!=="complete")) CUP.r1=await resolveMatches(CUP.r1,9);
+  if(!CUP.r16 && CUP.r1.every(m=>m.status==="complete")){
+    const winners=CUP.r1.map(winner), top=CUP.top12;
+    // Deterministic 16-team bracket: top 4 face the four R1 winners;
+    // seeds 5–12 face each other in seed order.
+    CUP.r16=[
+      makeMatch(top[0],winners[0],15),makeMatch(top[1],winners[1],15),
+      makeMatch(top[2],winners[2],15),makeMatch(top[3],winners[3],15),
+      makeMatch(top[4],top[11],15),makeMatch(top[5],top[10],15),
+      makeMatch(top[6],top[9],15),makeMatch(top[7],top[8],15)
+    ];
+  }
+  if(CUP.r16 && now>=15) CUP.r16=await resolveMatches(CUP.r16,15);
+  if(!CUP.qf && CUP.r16?.every(m=>m.status==="complete")){
+    const w=CUP.r16.map(winner);
+    CUP.qf=[makeMatch(w[0],w[1],24),makeMatch(w[2],w[3],24),makeMatch(w[4],w[5],24),makeMatch(w[6],w[7],24)];
+  }
+  if(CUP.qf && now>=24) CUP.qf=await resolveMatches(CUP.qf,24);
+  if(!CUP.sf && CUP.qf?.every(m=>m.status==="complete")){
+    const w=CUP.qf.map(winner);
+    CUP.sf=[makeMatch(w[0],w[1],29),makeMatch(w[2],w[3],29)];
+  }
+  if(CUP.sf && now>=29) CUP.sf=await resolveMatches(CUP.sf,29);
+  if(!CUP.final && CUP.sf?.every(m=>m.status==="complete")){
+    const w=CUP.sf.map(winner);CUP.final=[makeMatch(w[0],w[1],35)];
+  }
+  if(CUP.final && now>=35) {
+    CUP.final=await resolveMatches(CUP.final,35);
+    if(CUP.final[0]?.status==="complete") CUP.champion=winner(CUP.final[0]);
+  }
+  saveCup();renderCup();
+}
+async function createCup(){
+  if(STANDINGS.length<20){botSay("The Carabao Cup requires a 20-team H2H league.");return}
+  const saved=loadSaved();
+  if(saved){CUP=saved;await advanceCup();botSay("Saved Carabao Cup restored and checked against the current gameweek.");return}
+  CUP=initialCup();saveCup();renderCup();
+  botSay("🏆 Round 1 locked: 13th vs 20th, 14th vs 19th, 15th vs 18th, 16th vs 17th. The tie winner is decided by normal FPL points in GW9.");
+  await advanceCup();
+}
+function matchHTML(m){
+  if(!m)return'<div class="match"><div class="row">TBD</div><div class="row">TBD</div></div>';
+  const label=x=>x?.name||"TBD";
+  return`<div class="match"><div class="row ${m.win==="a"?"win":""}"><span>${esc(label(m.a))}</span><b>${m.as??"—"}</b></div><div class="row ${m.win==="b"?"win":""}"><span>${esc(label(m.b))}</span><b>${m.bs??"—"}</b></div></div>`;
+}
+function renderCup(){
+  const el=$("cupContent");
+  if(!STANDINGS.length){el.innerHTML="<h2>🏆 Supreme Carabao Cup</h2><p class='muted'>Load your H2H league first.</p>";return}
+  if(!CUP){el.innerHTML="<div class='trophy'>🏆</div><h2>Supreme Carabao Cup</h2><p class='muted'>Round 1 uses H2H positions after GW8; later rounds use the locked bracket.</p><button class='btn gold' id='makeCup'>Create Competition</button>";$("makeCup").onclick=createCup;return}
+  const status=`Current GW${GW}. Results are shown only when the required gameweek has data.`;
+  el.innerHTML=`<div class="grid g4"><div class="stat"><small>Round 1</small><b>GW9</b><small>Seeds 13–20</small></div><div class="stat"><small>Round of 16</small><b>GW15</b><small>8 + 8</small></div><div class="stat"><small>Quarterfinal</small><b>GW24</b></div><div class="stat"><small>Final</small><b>GW35</b><small>🏆</small></div></div>
+  <div class="notice" style="margin:14px 0"><b>Rule:</b> cup winners are determined by normal FPL points from the specified gameweek, not H2H league points. A draw uses the better locked pre-round seed as tiebreaker. ${esc(status)}</div>
+  ${CUP.champion?`<div class="champ"><div class="trophy">🏆</div><h2>${esc(CUP.champion.name)}</h2><div class="muted">Champion · GW35</div></div>`:""}
+  <div class="bracket" style="margin-top:15px"><div class="bracketGrid">
+  <div class="round1"><div class="roundTitle">Round 1 · GW9</div>${(CUP.r1||[]).map(matchHTML).join("")}</div>
+  <div class="r16"><div class="roundTitle">Round of 16 · GW15</div>${(CUP.r16||[]).map(matchHTML).join("")}</div>
+  <div class="qf"><div class="roundTitle">Quarterfinal · GW24</div>${(CUP.qf||[]).map(matchHTML).join("")}</div>
+  <div class="sf"><div class="roundTitle">Semifinal · GW29</div>${(CUP.sf||[]).map(matchHTML).join("")}<div class="roundTitle" style="margin-top:40px">Final · GW35</div>${(CUP.final||[]).map(matchHTML).join("")}</div>
+  </div></div>`;
+}
+async function autoRestoreCup(){if(!STANDINGS.length)return;CUP=loadSaved();if(CUP){await advanceCup()}else renderCup()}
+async function answer(q){
+  q=q.trim();if(!q)return;botSay(q,"user");$("query").value="";
+  if(!STANDINGS.length){botSay("Load the H2H league first so I have the teams and manager IDs.");return}
+  const l=q.toLowerCase();
+  if(l.includes("carabao")||l.includes("bracket")||l.includes("round 1")){await createCup();return}
+  if(l.includes("winning")||l.includes("consecutive win")){botSay(streak("W","winning"));return}
+  if(l.includes("losing")||l.includes("consecutive loss")){botSay(streak("L","losing"));return}
+  if(l.includes("unbeaten")){botSay(streakGeneric(v=>v==="W"||v==="D","unbeaten"));return}
+  if(l.includes("last month")){try{botSay(await lastMonth())}catch(e){botSay("I couldn't retrieve the manager histories: "+e.message)}return}
+  if(l.includes("top")||l.includes("standing")){botSay("Current H2H top 10:\n"+STANDINGS.slice(0,10).map(t=>`${t.rank}. ${t.name} — ${t.total} pts (${t.wins}W ${t.draws}D ${t.losses}L)`).join("\n"));return}
+  botSay("Try: “longest winning streak”, “longest losing streak”, “longest unbeaten run”, “most points last month”, “show top 10”, or “create Carabao bracket”.");
+}
+$("leagueId").value=localStorage.getItem("supreme_h2h_id")||"";
+renderButtons();renderCup();loadBase();
+</script>
+</body>
+</html>
