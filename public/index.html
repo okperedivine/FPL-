@@ -14,6 +14,7 @@
 label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bottom:6px}input{width:100%;background:#06100b;color:#fff;border:1px solid var(--line);border-radius:9px;padding:11px}.pills{display:flex;gap:6px;flex-wrap:wrap}
 .tableWrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{width:100%;border-collapse:collapse;min-width:850px}th,td{padding:10px;border-bottom:1px solid #234a3355;text-align:left;font-size:13px}th{font-size:10px;text-transform:uppercase;color:#9fbaaa;background:#10271c}.muted{color:var(--muted)}.score{color:var(--g);font-weight:900}.tag{background:#173a26;padding:4px 7px;border-radius:99px;font-size:10px;font-weight:800}
 .notice{padding:12px;border:1px solid var(--line);background:#0b1911;border-radius:10px;color:#b9cbbf;font-size:13px;line-height:1.5}.stat{border:1px solid var(--line);border-radius:12px;padding:15px;background:#ffffff04}.stat small{color:var(--muted)}.stat b{display:block;font-size:26px;margin-top:4px}
+.fxrow{display:flex;gap:4px;flex-wrap:wrap;max-width:220px}.fx{font-size:10px;font-weight:800;padding:3px 6px;border-radius:6px;color:#06100b;white-space:nowrap}.fx1,.fx2{background:var(--g)}.fx3{background:var(--gold)}.fx4,.fx5{background:var(--red)}.fx-blank{background:#3a4a41;color:#cfe3d7}
 .chat{height:420px;overflow:auto;display:flex;flex-direction:column;gap:9px}.bubble{padding:11px 13px;border-radius:13px;white-space:pre-wrap;line-height:1.45;max-width:92%}.bot{background:#10271c;border:1px solid var(--line)}.user{background:#198a51;align-self:flex-end}.quick{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.quick button{border:1px solid var(--line);background:#08130d;color:#bdd0c2;border-radius:999px;padding:7px 10px;font-size:11px}.chatbar{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:10px}
 .bracket{overflow:auto}.bracketGrid{display:grid;grid-template-columns:repeat(4,240px);gap:18px;min-width:1000px}.roundTitle{text-align:center;color:var(--gold);font-size:11px;font-weight:900;text-transform:uppercase;margin-bottom:10px}.match{background:#07120c;border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-bottom:18px}.row{display:flex;justify-content:space-between;padding:9px;border-bottom:1px solid #234a3366;font-size:12px}.row:last-child{border:0}.win{background:#35d07f16;color:#dff9e9;font-weight:900}.round1 .match:nth-child(2){margin-top:18px}.round1 .match:nth-child(3){margin-top:36px}.round1 .match:nth-child(4){margin-top:54px}.r16 .match:nth-child(2){margin-top:65px}.r16 .match:nth-child(3){margin-top:65px}.r16 .match:nth-child(4){margin-top:65px}.qf .match:nth-child(2){margin-top:160px}.sf .match{margin-top:160px}.champ{text-align:center;border:1px solid #a98128;background:#211b0b;border-radius:15px;padding:20px}.trophy{font-size:42px}
 .error{color:#ffad9d}.loading{color:#bdd1c4}.hidden{display:none}
@@ -39,12 +40,12 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 <div class="controls">
 <div><label>Position</label><div class="pills" id="pos"></div></div>
 <div><label>Look ahead: <span id="ngwLabel">5</span> GWs</label><input id="ngw" type="range" min="1" max="8" value="5"></div>
-<div><label>Maximum price: £<span id="budgetLabel">15.0</span>m</label><input id="budget" type="range" min="4" max="15" step=".5" value="15"></div>
+<div><label>Maximum price: £<span id="budgetLabel">20.0</span>m</label><input id="budget" type="range" min="4" max="20" step=".5" value="20"></div>
 <div><label>Sort</label><div class="pills" id="sort"></div></div>
 </div>
 <p class="notice" id="boardNotice">Loading live FPL data…</p>
 </div>
-<div class="tableWrap"><table><thead><tr><th>#</th><th>Player</th><th>Team</th><th>Pos</th><th>£m</th><th>Form</th><th>Next GW</th><th>xGI/90</th><th>Fixtures</th><th>Score</th><th>Value</th></tr></thead><tbody id="players"></tbody></table></div>
+<div class="tableWrap"><table style="min-width:1100px"><thead><tr><th>#</th><th>Player</th><th>Team</th><th>Pos</th><th>£m</th><th>Form</th><th>Last GW</th><th>xGI/90</th><th>Next Opp</th><th>Fixture Run</th><th>Score</th><th>Value</th></tr></thead><tbody id="players"></tbody></table></div>
 </section>
 
 <section id="h2h" class="tab hidden">
@@ -89,8 +90,8 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 "use strict";
 const API="/api";
 const POS={1:"GKP",2:"DEF",3:"MID",4:"FWD"};
-let BS=null,FIX=null,TEAMS={},GW=1,ROWS=[],LEAGUE=null,STANDINGS=[],MATCHES=[],CUP=null;
-let position="ALL",sortKey="score",nGws=5,budget=15;
+let BS=null,FIX=null,TEAMS={},GW=1,ROWS=[],LEAGUE=null,STANDINGS=[],MATCHES=[],CUP=null,FORM_CACHE=null;
+let position="ALL",sortKey="score",nGws=5,budget=20,FXIDX={};
 
 const $=id=>document.getElementById(id);
 const num=v=>Number.isFinite(parseFloat(v))?parseFloat(v):0;
@@ -105,34 +106,72 @@ async function getJSON(url,options={}){
   }finally{clearTimeout(tm)}
 }
 function currentGW(){return BS?.events?.find(e=>e.is_current)?.id||Math.max((BS?.events?.find(e=>e.is_next)?.id||2)-1,1)}
-function fixtureAverages(from,count){
-  let d={}; if(!FIX)return d;
-  FIX.forEach(f=>{if(f.event<from||f.event>from+count-1)return;(d[f.team_h]??=[]).push(num(f.team_h_difficulty));(d[f.team_a]??=[]).push(num(f.team_a_difficulty))});
-  return Object.fromEntries(Object.entries(d).map(([k,v])=>[k,v.reduce((a,b)=>a+b,0)/v.length]));
+/* Builds, per team, a chronological list of every scheduled fixture with
+   opponent id, venue and difficulty. Powers both the Next Opponent chip and
+   the weighted fixture-run scoring below. Naturally reflects blank and
+   double gameweeks, since a team simply has 0 or 2+ entries for a given GW. */
+function buildFixtureIndex(){
+  const idx={}; if(!FIX)return idx;
+  FIX.forEach(f=>{
+    if(f.event==null)return;
+    (idx[f.team_h]??=[]).push({event:f.event,opp:f.team_a,isHome:true,difficulty:num(f.team_h_difficulty)||3});
+    (idx[f.team_a]??=[]).push({event:f.event,opp:f.team_h,isHome:false,difficulty:num(f.team_a_difficulty)||3});
+  });
+  Object.values(idx).forEach(arr=>arr.sort((a,b)=>a.event-b.event));
+  return idx;
 }
-function score(p,avg){
-  const price=num(p.now_cost)/10,form=num(p.form),ppg=num(p.points_per_game),ep=num(p.ep_next),xgi=num(p.expected_goal_involvements_per_90),ict=num(p.ict_index);
-  const chance=p.chance_of_playing_next_round==null?100:num(p.chance_of_playing_next_round),mins=num(p.minutes),starts=num(p.starts);
-  const rel=starts?Math.min(mins/(starts*90+1),1):mins?1:.3,ease=5-(avg[p.team]??3);
-  const s=(form*2.2+ppg+ep*1.6+xgi*6+ict*.05+ease*1.3)*(chance/100)*(.5+.5*rel);
-  return {id:p.id,name:p.web_name,full:`${p.first_name} ${p.second_name}`,team:TEAMS[p.team]?.short_name||"?",pos:POS[p.element_type],price,form,ep,xgi,ease,score:s,value:price?s/price:0,chance,rel}
+/* Score = (quality shown last gameweek + underlying season quality)
+         × availability × minutes-reliability
+         × fixture outlook (recency-weighted ease, nearer GWs matter more)
+         × fixture-count factor (rewards double gameweeks, punishes blanks). */
+function score(p,fxIdx,from,count){
+  const price=num(p.now_cost)/10;
+  const form=num(p.form),ppg=num(p.points_per_game),lastGW=num(p.event_points);
+  const xgi=num(p.expected_goal_involvements_per_90),ict=num(p.ict_index),epNext=num(p.ep_next);
+  const chance=p.chance_of_playing_next_round==null?100:num(p.chance_of_playing_next_round);
+  const mins=num(p.minutes),starts=num(p.starts);
+  const rel=starts?Math.min(mins/(starts*90+1),1):mins?1:.3;
+  const upcoming=(fxIdx[p.team]||[]).filter(f=>f.event>=from&&f.event<from+count);
+  let wsum=0,esum=0;
+  upcoming.forEach(f=>{const w=(from+count-f.event)+1;esum+=(5-f.difficulty)*w;wsum+=w});
+  const ease=wsum?esum/wsum:2.5; // recency-weighted ease of the run (0 hard .. ~4 easy)
+  const fixtureMult=0.7+0.6*(ease/5); // ~0.7 (brutal run) .. ~1.18 (dream run)
+  const ratio=count?upcoming.length/count:1;
+  const countFactor=Math.max(0.4,Math.min(1.6,0.4+0.6*ratio)); // <1 = blanks ahead, >1 = doubles ahead
+  const priorQuality=lastGW*1.1+form*2.0+ppg*0.8+xgi*6+ict*0.04; // last-GW output + sustained underlying quality
+  const s=priorQuality*(chance/100)*(.5+.5*rel)*fixtureMult*countFactor;
+  const next=upcoming.filter(f=>f.event===from); // immediate next gameweek only (could be 0, 1 or 2 fixtures)
+  return {id:p.id,name:p.web_name,full:`${p.first_name} ${p.second_name}`,team:TEAMS[p.team]?.short_name||"?",pos:POS[p.element_type],
+    price,form,ep:epNext,lastGW,xgi,ease,score:s,value:price?s/price:0,chance,rel,next,run:upcoming};
+}
+function oppChip(f){
+  const short=TEAMS[f.opp]?.short_name||"?",cls="fx"+Math.max(1,Math.min(5,Math.round(f.difficulty)));
+  return `<span class="fx ${cls}">${esc(short)} ${f.isHome?"(H)":"(A)"}</span>`;
+}
+function nextOppCell(row){
+  if(!row.next.length)return '<span class="fx fx-blank">BLANK</span>';
+  return '<div class="fxrow">'+row.next.map(oppChip).join("")+'</div>';
+}
+function fixtureRunCell(row){
+  if(!row.run.length)return '<span class="muted">No fixtures</span>';
+  return '<div class="fxrow">'+row.run.map(oppChip).join("")+'</div>';
 }
 function renderButtons(){
   $("pos").innerHTML=["ALL","GKP","DEF","MID","FWD"].map(x=>`<button class="pill ${position===x?"active":""}" data-pos="${x}">${x}</button>`).join("");
-  $("sort").innerHTML=[["score","Score"],["value","Value/£m"],["form","Form"],["ep","Next GW"]].map(x=>`<button class="pill ${sortKey===x[0]?"active":""}" data-sort="${x[1]}">${x[1]}</button>`.replace('data-sort="'+x[1]+'"','data-sort="'+x[0]+'"')).join("");
+  $("sort").innerHTML=[["score","Score"],["value","Value/£m"],["form","Form"],["lastGW","Last GW"],["ep","Next GW xP"]].map(x=>`<button class="pill ${sortKey===x[0]?"active":""}" data-sort="${x[1]}">${x[1]}</button>`.replace('data-sort="'+x[1]+'"','data-sort="'+x[0]+'"')).join("");
   document.querySelectorAll("[data-pos]").forEach(b=>b.onclick=()=>{position=b.dataset.pos;renderButtons();renderPlayers()});
   document.querySelectorAll("[data-sort]").forEach(b=>b.onclick=()=>{sortKey=b.dataset.sort;renderButtons();renderPlayers()});
 }
 function renderPlayers(){
   const list=ROWS.filter(p=>(position==="ALL"||p.pos===position)&&p.price<=budget).sort((a,b)=>b[sortKey]-a[sortKey]).slice(0,50);
-  $("players").innerHTML=list.map((p,i)=>`<tr><td>${i+1}</td><td><b>${esc(p.name)}</b><div class="muted">${esc(p.full)}</div></td><td>${esc(p.team)}</td><td><span class="tag">${p.pos}</span></td><td>${p.price.toFixed(1)}</td><td>${p.form.toFixed(1)}</td><td>${p.ep.toFixed(1)}</td><td>${p.xgi.toFixed(2)}</td><td>${p.ease>=3.3?"Easy":p.ease<=2.3?"Hard":"Mixed"}</td><td class="score">${p.score.toFixed(1)}</td><td>${p.value.toFixed(2)}</td></tr>`).join("");
+  $("players").innerHTML=list.map((p,i)=>`<tr><td>${i+1}</td><td><b>${esc(p.name)}</b><div class="muted">${esc(p.full)}</div></td><td>${esc(p.team)}</td><td><span class="tag">${p.pos}</span></td><td>${p.price.toFixed(1)}</td><td>${p.form.toFixed(1)}</td><td>${Math.round(p.lastGW)}</td><td>${p.xgi.toFixed(2)}</td><td>${nextOppCell(p)}</td><td>${fixtureRunCell(p)}</td><td class="score">${p.score.toFixed(1)}</td><td>${p.value.toFixed(2)}</td></tr>`).join("");
 }
 async function loadBase(){
   setLive("Connecting to Supreme FPL backend…");
   try{
     [BS,FIX]=await Promise.all([getJSON(API+"/bootstrap"),getJSON(API+"/fixtures")]);
-    TEAMS=Object.fromEntries(BS.teams.map(t=>[t.id,t]));GW=currentGW();
-    const avg=fixtureAverages(GW+1,nGws);ROWS=BS.elements.filter(p=>POS[p.element_type]).map(p=>score(p,avg));
+    TEAMS=Object.fromEntries(BS.teams.map(t=>[t.id,t]));GW=currentGW();FXIDX=buildFixtureIndex();
+    ROWS=BS.elements.filter(p=>POS[p.element_type]).map(p=>score(p,FXIDX,GW+1,nGws));
     $("boardNotice").textContent=`Live data loaded through the backend · Current GW${GW}; investment scoring looks ahead from GW${GW+1}.`;
     setLive("Live FPL data loaded · "+new Date().toLocaleTimeString());renderPlayers();autoRestoreCup();
   }catch(e){
@@ -140,16 +179,19 @@ async function loadBase(){
     $("boardNotice").innerHTML=`<span class="error">${esc(e.message)}</span><br>Make sure this app is running from its Node server, not as a downloaded HTML file.`;
   }
 }
-$("ngw").oninput=e=>{nGws=+e.target.value;$("ngwLabel").textContent=nGws;if(BS){ROWS=BS.elements.filter(p=>POS[p.element_type]).map(p=>score(p,fixtureAverages(GW+1,nGws)));renderPlayers()}};
+$("ngw").oninput=e=>{nGws=+e.target.value;$("ngwLabel").textContent=nGws;if(BS){ROWS=BS.elements.filter(p=>POS[p.element_type]).map(p=>score(p,FXIDX,GW+1,nGws));renderPlayers()}};
 $("budget").oninput=e=>{budget=+e.target.value;$("budgetLabel").textContent=budget.toFixed(1);renderPlayers()};
 document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tab").forEach(x=>x.classList.add("hidden"));$(b.dataset.tab).classList.remove("hidden")});
 
 const botMessages=[];
-function botSay(text,who="bot"){botMessages.push([who,text]);$("chat").innerHTML=botMessages.map(x=>`<div class="bubble ${x[0]}">${esc(x[1])}</div>`).join("");$("chat").scrollTop=$("chat").scrollHeight}
-botSay("Welcome. Load your H2H league, then ask me for streaks, last-month points, standings, or the Supreme Carabao Cup bracket.");
-$("quick").innerHTML=["Longest winning streak","Longest losing streak","Longest unbeaten run","Most points last month","Show top 10","Create Carabao bracket"].map(x=>`<button>${x}</button>`).join("");
-document.querySelectorAll("#quick button").forEach(b=>b.onclick=()=>answer(b.textContent));
+function botSay(text,who="bot"){const idx=botMessages.push([who,text])-1;renderChat();return idx}
+function botReplace(idx,text){if(botMessages[idx])botMessages[idx][1]=text;renderChat()}
+function renderChat(){$("chat").innerHTML=botMessages.map(x=>`<div class="bubble ${x[0]}">${esc(x[1])}</div>`).join("");$("chat").scrollTop=$("chat").scrollHeight}
+botSay("Welcome. Load your H2H league, then ask me things like \"predict who finishes top\", \"compare TeamA and TeamB\", streaks, form, or the Carabao Cup bracket — all computed live from your real league data, free.");
+$("quick").innerHTML=["Predict who finishes top","Compare two teams","Easiest run of fixtures","Longest winning streak","Most points last month","Create Carabao bracket"].map(x=>`<button>${x}</button>`).join("");
+document.querySelectorAll("#quick button").forEach(b=>b.onclick=()=>answer(b.textContent==="Compare two teams"?`compare ${STANDINGS[0]?.name||"TeamA"} and ${STANDINGS[1]?.name||"TeamB"}`:b.textContent));
 $("ask").onclick=()=>answer($("query").value);$("query").onkeydown=e=>{if(e.key==="Enter")answer($("query").value)};
+$("query").placeholder="Ask about your league…";
 
 function normalizeStandings(d){
   return (d?.standings?.results||[]).map((x,i)=>({rank:x.rank??i+1,entry:x.entry,name:x.entry_name||"Team",manager:x.player_name||"",total:x.total??0,wins:x.matches_won??0,draws:x.matches_drawn??0,losses:x.matches_lost??0}))
@@ -163,7 +205,7 @@ async function loadLeague(){
   const id=$("leagueId").value.trim();if(!id){$("leagueMsg").textContent="Enter a league ID.";return}
   localStorage.setItem("supreme_h2h_id",id);$("leagueMsg").textContent="Loading league through backend…";
   try{
-    LEAGUE=await getJSON(API+"/h2h/"+encodeURIComponent(id));STANDINGS=normalizeStandings(LEAGUE);MATCHES=normalizeMatches(LEAGUE);
+    LEAGUE=await getJSON(API+"/h2h/"+encodeURIComponent(id));STANDINGS=normalizeStandings(LEAGUE);MATCHES=normalizeMatches(LEAGUE);FORM_CACHE=null;SQUAD_CACHE=null;
     if(!STANDINGS.length)throw Error("No teams returned. Check the H2H league ID.");
     $("leagueMsg").textContent=`Loaded ${LEAGUE.league?.name||"H2H league"} · ${STANDINGS.length} teams · ${LEAGUE.pagesFetched||1} match page(s)`;
     renderStandings();renderCup();
@@ -190,6 +232,97 @@ async function lastMonth(){
   const histories=await getJSON(API+"/histories",{method:"POST",body:JSON.stringify({entryIds:STANDINGS.map(t=>t.entry)})});
   for(const t of STANDINGS){let pts=0;for(const g of (histories[t.entry]?.current||[])){const ev=BS.events.find(e=>e.id===g.event);if(ev&&new Date(ev.deadline_time)>=a&&new Date(ev.deadline_time)<=b)pts+=num(g.points)}vals.push([t.name,pts])}
   vals.sort((x,y)=>y[1]-x[1]);return"📅 Most FPL points last month:\n"+vals.slice(0,5).map((x,i)=>`${i+1}. ${x[0]} — ${x[1]}`).join("\n");
+}
+
+/* Recent per-manager FPL points (last 6 gameweeks) — a free proxy for
+   "current form", cached per loaded league. */
+async function getForm(){
+  if(FORM_CACHE)return FORM_CACHE;
+  const histories=await getJSON(API+"/histories",{method:"POST",body:JSON.stringify({entryIds:STANDINGS.map(t=>t.entry)})});
+  const out={};
+  STANDINGS.forEach(t=>{out[t.entry]=(histories[t.entry]?.current||[]).slice(-6).map(g=>({gw:g.event,points:num(g.points)}))});
+  FORM_CACHE=out;return out;
+}
+/* Each manager's actual current starting XI, fetched once and cached, so we
+   can score real squads with the same fixture-aware engine as the Player
+   Board — no external AI required, just real data plus real math. */
+let SQUAD_CACHE=null;
+async function getSquads(){
+  if(SQUAD_CACHE)return SQUAD_CACHE;
+  const out={};
+  await Promise.all(STANDINGS.map(async t=>{
+    try{ out[t.entry]=(await getJSON(API+`/entry/${t.entry}/picks/${GW}`)).picks||[]; }
+    catch{ out[t.entry]=[]; }
+  }));
+  SQUAD_CACHE=out;return out;
+}
+function squadPower(picks){
+  if(!ROWS.length)return 0;
+  const byId=new Map(ROWS.map(r=>[r.id,r]));
+  let total=0;
+  picks.forEach(p=>{ if(p.multiplier>0){ const info=byId.get(p.element); if(info) total+=info.score*p.multiplier; } });
+  return total;
+}
+function normalize(rows,key){
+  const vals=rows.map(x=>x[key]),min=Math.min(...vals),max=Math.max(...vals);
+  return rows.map(x=>({...x,[key+"N"]:max>min?(x[key]-min)/(max-min)*100:50}));
+}
+/* Power ranking: blends current H2H standing (40%), recent FPL form (30%),
+   and real current squad strength via the Player Board scoring engine (30%).
+   Entirely free — no external API calls, just the FPL public data you
+   already have loaded. */
+async function predictTop(){
+  if(!STANDINGS.length){botSay("Load the H2H league first so I have real teams to rank.");return}
+  const idx=botSay("Crunching standings, recent form, and real squads…");
+  try{
+    if(!ROWS.length)await loadBase();
+    const [form,squads]=await Promise.all([getForm(),getSquads()]);
+    let rows=STANDINGS.map(t=>{
+      const recent=form[t.entry]||[];
+      const avgRecent=recent.length?recent.reduce((a,g)=>a+g.points,0)/recent.length:0;
+      return {...t,avgRecent,squadScore:squadPower(squads[t.entry]||[])};
+    });
+    rows=normalize(rows,"total");rows=normalize(rows,"avgRecent");rows=normalize(rows,"squadScore");
+    rows.forEach(r=>r.power=r.totalN*0.4+r.avgRecentN*0.3+r.squadScoreN*0.3);
+    rows.sort((a,b)=>b.power-a.power);
+    const top=rows.slice(0,5);
+    const lines=top.map((t,i)=>`${i+1}. ${esc(t.name)} — H2H #${t.rank} (${t.total} pts), recent form ${t.avgRecent.toFixed(1)} pts/GW, squad power ${t.squadScoreN.toFixed(0)}/100`);
+    botReplace(idx,`📈 Power ranking (H2H standing + recent form + real current squad strength):\n${lines.join("\n")}\n\nTop pick right now: ${top[0].name}. This blends real data but form and injuries swing fast — treat it as a snapshot, not a certainty.`);
+  }catch(e){ botReplace(idx,"I couldn't complete that — "+e.message); }
+}
+/* Fuzzy-match a team/manager name mentioned in free text against the loaded league. */
+function findTeam(text){
+  const l=text.toLowerCase();
+  return STANDINGS.find(t=>l.includes(t.name.toLowerCase())||(t.manager&&l.includes(t.manager.toLowerCase())));
+}
+function compareTeams(q){
+  const l=q.toLowerCase();
+  let a=null,b=null;
+  for(const t of STANDINGS){
+    if(l.includes(t.name.toLowerCase())||(t.manager&&l.includes(t.manager.toLowerCase()))){ if(!a)a=t; else if(t.entry!==a.entry){b=t;break} }
+  }
+  if(!a||!b){botSay("Name two teams from your league and I'll compare them — e.g. \"compare "+(STANDINGS[0]?.name||"Team A")+" and "+(STANDINGS[1]?.name||"Team B")+"\".");return false}
+  const h2h=MATCHES.filter(m=>(String(m.a)===String(a.entry)&&String(m.b)===String(b.entry))||(String(m.a)===String(b.entry)&&String(m.b)===String(a.entry)));
+  let aw=0,bw=0,dr=0;
+  h2h.forEach(m=>{const ap=String(m.a)===String(a.entry)?m.ap:m.bp,bp=String(m.a)===String(a.entry)?m.bp:m.ap;if(ap>bp)aw++;else if(bp>ap)bw++;else dr++});
+  const rec=h2h.length?`Head-to-head this season: ${a.name} ${aw}-${dr}-${bw} ${b.name} (${h2h.length} meeting${h2h.length>1?"s":""}).`:"They haven't played each other yet this season.";
+  botSay(`⚔️ ${esc(a.name)} vs ${esc(b.name)}\n${a.name}: #${a.rank}, ${a.total} pts (${a.wins}W ${a.draws}D ${a.losses}L)\n${b.name}: #${b.rank}, ${b.total} pts (${b.wins}W ${b.draws}D ${b.losses}L)\n${rec}`);
+  return true;
+}
+async function fixtureOutlook(){
+  if(!STANDINGS.length){botSay("Load the H2H league first.");return}
+  const idx=botSay("Checking squads' upcoming fixtures…");
+  try{
+    if(!ROWS.length)await loadBase();
+    const squads=await getSquads();
+    const byId=new Map(ROWS.map(r=>[r.id,r]));
+    const rows=STANDINGS.map(t=>{
+      const picks=(squads[t.entry]||[]).filter(p=>p.multiplier>0);
+      const eases=picks.map(p=>byId.get(p.element)?.ease).filter(v=>v!=null);
+      return {name:t.name,avgEase:eases.length?eases.reduce((a,b)=>a+b,0)/eases.length:0};
+    }).sort((a,b)=>b.avgEase-a.avgEase);
+    botReplace(idx,"📅 Squad fixture outlook (best run of games first, based on their current XI):\n"+rows.slice(0,10).map((t,i)=>`${i+1}. ${esc(t.name)} — ease ${t.avgEase.toFixed(1)}/5`).join("\n"));
+  }catch(e){ botReplace(idx,"I couldn't complete that — "+e.message); }
 }
 
 const CUP_RULES={r1:9,r16:15,qf:24,sf:29,final:35};
@@ -293,12 +426,17 @@ async function answer(q){
   if(!STANDINGS.length){botSay("Load the H2H league first so I have the teams and manager IDs.");return}
   const l=q.toLowerCase();
   if(l.includes("carabao")||l.includes("bracket")||l.includes("round 1")){await createCup();return}
+  if(l.includes(" vs ")||l.includes(" versus ")||l.includes("compare")||l.includes("head to head")||l.includes("head-to-head")){if(compareTeams(q)!==false)return}
+  if(l.includes("predict")||l.includes("most likely")||l.includes("who will win")||l.includes("win the league")||l.includes("finish top")||l.includes("finish first")||l.includes("power rank")||l.includes("strongest squad")||l.includes("best squad")||l.includes("best team")||(l.includes("based on")&&(l.includes("form")||l.includes("team")))){await predictTop();return}
+  if(l.includes("fixture")||l.includes("easiest run")||l.includes("hardest run")||l.includes("run of games")){await fixtureOutlook();return}
   if(l.includes("winning")||l.includes("consecutive win")){botSay(streak("W","winning"));return}
   if(l.includes("losing")||l.includes("consecutive loss")){botSay(streak("L","losing"));return}
   if(l.includes("unbeaten")){botSay(streakGeneric(v=>v==="W"||v==="D","unbeaten"));return}
   if(l.includes("last month")){try{botSay(await lastMonth())}catch(e){botSay("I couldn't retrieve the manager histories: "+e.message)}return}
   if(l.includes("top")||l.includes("standing")){botSay("Current H2H top 10:\n"+STANDINGS.slice(0,10).map(t=>`${t.rank}. ${t.name} — ${t.total} pts (${t.wins}W ${t.draws}D ${t.losses}L)`).join("\n"));return}
-  botSay("Try: “longest winning streak”, “longest losing streak”, “longest unbeaten run”, “most points last month”, “show top 10”, or “create Carabao bracket”.");
+  const team=findTeam(q);
+  if(team){botSay(`${esc(team.name)} (${team.manager||"manager"}): #${team.rank} in H2H, ${team.total} pts, ${team.wins}W ${team.draws}D ${team.losses}L. Ask me to "compare ${team.name} and <another team>" for more, or "predict" for a full power ranking.`);return}
+  botSay("I can't parse totally free-form phrasing without a paid AI model, but I can do a lot for free — try: \"predict who finishes top\", \"compare TeamA and TeamB\", \"easiest run of fixtures\", \"longest winning streak\", \"most points last month\", \"show top 10\", or \"create Carabao bracket\".");
 }
 $("leagueId").value=localStorage.getItem("supreme_h2h_id")||"";
 renderButtons();renderCup();loadBase();
