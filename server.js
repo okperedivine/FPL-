@@ -62,25 +62,35 @@ app.get("/api/entry/:id", async (req,res)=>{
   catch(e){res.status(502).json({error:e.message});}
 });
 
-/* Returns the public H2H league payload plus all match pages we can retrieve.
-   The FPL endpoint is paginated, so the backend deliberately walks pages. */
+/* Returns the H2H league standings plus all match pages we can retrieve.
+   FPL exposes standings and matches as two separate paginated endpoints,
+   so the backend fetches both and combines them. */
 app.get("/api/h2h/:id", async (req,res)=>{
   if(!validId(req.params.id)) return res.status(400).json({error:"Invalid H2H league ID"});
   try{
-    let first=null, matches=[], page=1;
-    for(; page<=20; page++){
-      const d=await fplFetch(`/leagues-h2h-matches/league/${req.params.id}/?page=${page}`);
-      if(!first) first=d;
-      const ms=Array.isArray(d.matches)?d.matches:[];
+    let leagueInfo=null, standingsResults=[], sPage=1;
+    for(; sPage<=20; sPage++){
+      const d=await fplFetch(`/leagues-h2h/${req.params.id}/standings/?page_standings=${sPage}`);
+      if(!leagueInfo) leagueInfo=d.league;
+      const rs=Array.isArray(d?.standings?.results)?d.standings.results:[];
+      standingsResults.push(...rs);
+      if(!d?.standings?.has_next) break;
+    }
+    if(!standingsResults.length) throw Error("No teams returned. Check the H2H league ID.");
+
+    let matches=[], mPage=1;
+    for(; mPage<=20; mPage++){
+      const d=await fplFetch(`/leagues-h2h-matches/league/${req.params.id}/?page=${mPage}`);
+      const ms=Array.isArray(d.results)?d.results:[];
       matches.push(...ms);
-      if(ms.length===0 || ms.length<50) break;
+      if(!d.has_next) break;
     }
     const unique=new Map();
     for(const m of matches){
       const key=m.id ?? `${m.event}-${m.entry_1_entry}-${m.entry_2_entry}`;
       unique.set(String(key),m);
     }
-    res.json({...first, matches:[...unique.values()], pagesFetched:page});
+    res.json({league:leagueInfo, standings:{results:standingsResults}, matches:[...unique.values()], pagesFetched:mPage});
   }catch(e){res.status(502).json({error:e.message});}
 });
 
