@@ -30,6 +30,7 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 </header>
 <nav class="nav">
 <button data-tab="board" class="active">Player Board</button>
+<button data-tab="insights">Insights</button>
 <button data-tab="h2h">H2H Analyst</button>
 <button data-tab="team">Team Analyzer</button>
 <button data-tab="cup">Supreme Carabao Cup</button>
@@ -45,7 +46,38 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 </div>
 <p class="notice" id="boardNotice">Loading live FPL data…</p>
 </div>
+<div class="grid g2">
+<div class="panel"><h3 style="margin-top:0">📈 Consider Adding</h3><div id="buyList" class="muted">Loading…</div></div>
+<div class="panel"><h3 style="margin-top:0">📉 Consider Selling / Avoiding</h3><div id="sellList" class="muted">Loading…</div></div>
+</div>
 <div class="tableWrap"><table style="min-width:1100px"><thead><tr><th>#</th><th>Player</th><th>Team</th><th>Pos</th><th>£m</th><th>Form</th><th>Last GW</th><th>xGI/90</th><th>Next Opp</th><th>Fixture Run</th><th>Score</th><th>Value</th></tr></thead><tbody id="players"></tbody></table></div>
+</section>
+
+<section id="insights" class="tab hidden">
+<div class="grid g2">
+<div class="panel">
+<h2 style="margin-top:0">🎖️ Captaincy Picks</h2>
+<p class="muted" style="margin-top:0">Nailed starters with a fixture next gameweek, ranked by projected points. Split into safe (widely owned) and differential (low owned) picks.</p>
+<h3 style="margin-bottom:6px">Safe</h3><div id="capSafe" class="muted">Loading…</div>
+<h3 style="margin-bottom:6px">Differential</h3><div id="capDiff" class="muted">Loading…</div>
+</div>
+<div class="panel">
+<h2 style="margin-top:0">🔎 Differential Finder</h2>
+<label>Ownership below: <span id="diffPctLabel">10</span>%</label>
+<input id="diffPct" type="range" min="1" max="30" value="10">
+<div id="diffList" class="muted" style="margin-top:10px">Loading…</div>
+</div>
+<div class="panel">
+<h2 style="margin-top:0">💰 Price Change Watch</h2>
+<p class="muted" style="margin-top:0">FPL's own same-day price-change projections — not a guess, straight from their API.</p>
+<h3 style="margin-bottom:6px">Likely rises</h3><div id="priceUp" class="muted">Loading…</div>
+<h3 style="margin-bottom:6px">Likely falls</h3><div id="priceDown" class="muted">Loading…</div>
+</div>
+<div class="panel">
+<h2 style="margin-top:0">🩹 Injury & Rotation Digest</h2>
+<div id="injuryDigest" class="muted">Loading…</div>
+</div>
+</div>
 </section>
 
 <section id="h2h" class="tab hidden">
@@ -90,7 +122,7 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 "use strict";
 const API="/api";
 const POS={1:"GKP",2:"DEF",3:"MID",4:"FWD"};
-let BS=null,FIX=null,TEAMS={},GW=1,ROWS=[],LEAGUE=null,STANDINGS=[],MATCHES=[],CUP=null,FORM_CACHE=null;
+let BS=null,FIX=null,TEAMS={},ELEMENTS_BY_ID={},GW=1,ROWS=[],LEAGUE=null,STANDINGS=[],MATCHES=[],CUP=null,FORM_CACHE=null;
 let position="ALL",sortKey="score",nGws=5,budget=20,FXIDX={};
 
 const $=id=>document.getElementById(id);
@@ -120,6 +152,19 @@ function buildFixtureIndex(){
   Object.values(idx).forEach(arr=>arr.sort((a,b)=>a.event-b.event));
   return idx;
 }
+/* FPL's own expected_goal_involvements_per_90 is a straight (xGI / minutes) * 90
+   calculation with no minimum-sample guard. A player with e.g. 6 minutes and a
+   single deflected shot's worth of xG can show a "per 90" rate of 10-15+, which
+   is not a real rate, it's a tiny numerator amplified by a tiny denominator.
+   We shrink it toward 0 using a 90-minute "prior" (so a player needs a real
+   sample before their rate is trusted at face value), plus a hard cap as a
+   safety net since even shrinkage can't fully tame a freak single-fixture spike. */
+function safeXgi90(p){
+  const raw=num(p.expected_goal_involvements_per_90);
+  const mins=num(p.minutes);
+  const reliability=mins/(mins+90); // 0 mins→0×, 90 mins→0.5×, 900 mins→~0.91×
+  return Math.min(raw*reliability,2);
+}
 /* Score = (quality shown last gameweek + underlying season quality)
          × availability × minutes-reliability
          × fixture outlook (recency-weighted ease, nearer GWs matter more)
@@ -127,7 +172,7 @@ function buildFixtureIndex(){
 function score(p,fxIdx,from,count){
   const price=num(p.now_cost)/10;
   const form=num(p.form),ppg=num(p.points_per_game),lastGW=num(p.event_points);
-  const xgi=num(p.expected_goal_involvements_per_90),ict=num(p.ict_index),epNext=num(p.ep_next);
+  const xgi=safeXgi90(p),ict=num(p.ict_index),epNext=num(p.ep_next);
   const chance=p.chance_of_playing_next_round==null?100:num(p.chance_of_playing_next_round);
   const mins=num(p.minutes),starts=num(p.starts);
   const rel=starts?Math.min(mins/(starts*90+1),1):mins?1:.3;
@@ -142,7 +187,9 @@ function score(p,fxIdx,from,count){
   const s=priorQuality*(chance/100)*(.5+.5*rel)*fixtureMult*countFactor;
   const next=upcoming.filter(f=>f.event===from); // immediate next gameweek only (could be 0, 1 or 2 fixtures)
   return {id:p.id,name:p.web_name,full:`${p.first_name} ${p.second_name}`,team:TEAMS[p.team]?.short_name||"?",pos:POS[p.element_type],
-    price,form,ep:epNext,lastGW,xgi,ease,score:s,value:price?s/price:0,chance,rel,next,run:upcoming};
+    price,form,ep:epNext,lastGW,xgi,lowSample:mins<180,ease,score:s,value:price?s/price:0,chance,rel,next,run:upcoming,
+    status:p.status,priceMomentum:num(p.cost_change_event),netTransfers:num(p.transfers_in_event)-num(p.transfers_out_event),
+    ownership:num(p.selected_by_percent)};
 }
 function oppChip(f){
   const short=TEAMS[f.opp]?.short_name||"?",cls="fx"+Math.max(1,Math.min(5,Math.round(f.difficulty)));
@@ -164,16 +211,120 @@ function renderButtons(){
 }
 function renderPlayers(){
   const list=ROWS.filter(p=>(position==="ALL"||p.pos===position)&&p.price<=budget).sort((a,b)=>b[sortKey]-a[sortKey]).slice(0,50);
-  $("players").innerHTML=list.map((p,i)=>`<tr><td>${i+1}</td><td><b>${esc(p.name)}</b><div class="muted">${esc(p.full)}</div></td><td>${esc(p.team)}</td><td><span class="tag">${p.pos}</span></td><td>${p.price.toFixed(1)}</td><td>${p.form.toFixed(1)}</td><td>${Math.round(p.lastGW)}</td><td>${p.xgi.toFixed(2)}</td><td>${nextOppCell(p)}</td><td>${fixtureRunCell(p)}</td><td class="score">${p.score.toFixed(1)}</td><td>${p.value.toFixed(2)}</td></tr>`).join("");
+  $("players").innerHTML=list.map((p,i)=>`<tr><td>${i+1}</td><td><b>${esc(p.name)}</b><div class="muted">${esc(p.full)}</div></td><td>${esc(p.team)}</td><td><span class="tag">${p.pos}</span></td><td>${p.price.toFixed(1)}</td><td>${p.form.toFixed(1)}</td><td>${Math.round(p.lastGW)}</td><td>${p.xgi.toFixed(2)}${p.lowSample?' <span class="muted" title="Small minutes sample — rate may not be reliable yet">·low sample</span>':''}</td><td>${nextOppCell(p)}</td><td>${fixtureRunCell(p)}</td><td class="score">${p.score.toFixed(1)}</td><td>${p.value.toFixed(2)}</td></tr>`).join("");
+  renderSuggestions();
+}
+/* Board-level buy/sell suggestions — independent of any single manager's
+   squad (that's what the Team Analyzer tab is for). Buys reward reliable
+   starters with strong underlying score plus positive market momentum;
+   sells surface availability risk, falling price + owners leaving, or a
+   brutal fixture run, ranked worst-value-for-price first. */
+function buyReason(r){
+  const bits=[];
+  if(r.priceMomentum>0)bits.push("price rising");
+  if(r.netTransfers>0)bits.push("gaining owners");
+  if(r.ease>=3)bits.push("good fixture run");
+  if(r.form>=5)bits.push("strong form");
+  return bits.length?bits.join(" · "):"High underlying score for price";
+}
+function sellReason(r){
+  const bits=[];
+  if(r.status!=="a")bits.push("unavailable/suspended");
+  if(r.chance<75)bits.push(`fitness doubt (${r.chance}%)`);
+  if(r.priceMomentum<0)bits.push("price falling");
+  if(r.netTransfers<0)bits.push("losing owners");
+  if(r.ease<1.5)bits.push("tough fixture run");
+  return bits.length?bits.join(" · "):"Poor value for price";
+}
+function renderSuggestions(){
+  const pool=ROWS.filter(p=>p.price<=budget&&(position==="ALL"||p.pos===position));
+  const buys=pool.filter(r=>r.status==="a"&&r.chance>=75&&r.rel>0.5)
+    .sort((a,b)=>(b.score*(1+Math.max(0,b.priceMomentum)*0.1)+b.netTransfers/50000)-(a.score*(1+Math.max(0,a.priceMomentum)*0.1)+a.netTransfers/50000))
+    .slice(0,5);
+  const sells=pool.filter(r=>r.status!=="a"||r.chance<75||(r.priceMomentum<0&&r.netTransfers<0)||r.ease<1.5)
+    .sort((a,b)=>(a.value)-(b.value))
+    .slice(0,5);
+  const row=(r,reasonFn)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid #234a3355"><div><b>${esc(r.name)}</b> <span class="muted">${esc(r.team)} · £${r.price.toFixed(1)}m</span><div class="muted" style="font-size:11px">${esc(reasonFn(r))}</div></div><div class="score">${r.score.toFixed(1)}</div></div>`;
+  $("buyList").innerHTML=buys.length?buys.map(r=>row(r,buyReason)).join(""):'<p class="muted">No standout candidates in this filter.</p>';
+  $("sellList").innerHTML=sells.length?sells.map(r=>row(r,sellReason)).join(""):'<p class="muted">No red flags in this filter.</p>';
+}
+const rowLine=(left,right)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid #234a3355">${left}${right}</div>`;
+
+/* Captaincy: nailed starters (reliable minutes, fit, has a fixture next GW)
+   ranked by FPL's own next-round expected points (ep_next), nudged for a
+   double gameweek. Split by ownership so "safe" and "differential" are two
+   different questions, not one blended list. */
+function renderCaptaincy(){
+  const pool=ROWS.filter(r=>r.status==="a"&&r.chance>=75&&r.rel>0.5&&r.next.length>0)
+    .map(r=>({...r,capScore:r.ep*(0.5+0.5*r.rel)*(r.chance/100)*(1+0.15*Math.max(0,r.next.length-1))}))
+    .sort((a,b)=>b.capScore-a.capScore);
+  const safe=pool.filter(r=>r.ownership>=15).slice(0,5);
+  const diff=pool.filter(r=>r.ownership<15).slice(0,5);
+  const line=r=>rowLine(`<div><b>${esc(r.name)}</b> <span class="muted">${esc(r.team)} · ${r.ownership.toFixed(1)}% owned</span></div>`,`<div class="score">${r.capScore.toFixed(1)} xP</div>`);
+  $("capSafe").innerHTML=safe.length?safe.map(line).join(""):'<p class="muted">No widely-owned nailed picks found.</p>';
+  $("capDiff").innerHTML=diff.length?diff.map(line).join(""):'<p class="muted">No low-owned nailed picks found.</p>';
+}
+
+/* Differentials: below an ownership threshold, ranked by the same score
+   used everywhere else on the board — so this is "good AND under-owned",
+   not just "under-owned". */
+function renderDifferentials(){
+  const threshold=+$("diffPct").value;$("diffPctLabel").textContent=threshold;
+  const list=ROWS.filter(r=>r.ownership<threshold&&r.status==="a"&&r.chance>=75)
+    .sort((a,b)=>b.score-a.score).slice(0,10);
+  const line=r=>rowLine(`<div><b>${esc(r.name)}</b> <span class="muted">${esc(r.team)} · ${r.pos} · £${r.price.toFixed(1)}m · ${r.ownership.toFixed(1)}% owned</span></div>`,`<div class="score">${r.score.toFixed(1)}</div>`);
+  $("diffList").innerHTML=list.length?list.map(line).join(""):'<p class="muted">Nobody under that ownership threshold scores well right now — try raising it.</p>';
+}
+$("diffPct").oninput=renderDifferentials;
+
+/* Price Change Watch uses FPL's own price_change_projections field (offset 0
+   = today) rather than a homemade heuristic — it's their actual pricing
+   model output. Skips anything already locked for today or still
+   calibrating (brand-new signings with too little data to trust). */
+function renderPriceWatch(){
+  const now=Date.now();
+  const withProj=Object.values(ELEMENTS_BY_ID).map(p=>{
+    const proj=(p.price_change_projections||[])[0];
+    const locked=p.price_change_locked_until&&Date.parse(p.price_change_locked_until)>now;
+    return {p,pct:proj?parseFloat(proj.projected_percent):0,likelihood:proj?proj.likelihood:0,locked,calibrating:p.price_change_calibrating};
+  }).filter(x=>!x.locked&&!x.calibrating&&x.pct!==0);
+  const rises=withProj.filter(x=>x.pct>0).sort((a,b)=>b.pct-a.pct).slice(0,8);
+  const falls=withProj.filter(x=>x.pct<0).sort((a,b)=>a.pct-b.pct).slice(0,8);
+  const confLabel=n=>{const a=Math.abs(n);return a>=5?"very likely":a>=3?"likely":"possible"};
+  const line=x=>rowLine(`<div><b>${esc(x.p.web_name)}</b> <span class="muted">£${(x.p.now_cost/10).toFixed(1)}m · ${confLabel(x.likelihood)}</span></div>`,`<div class="score" style="color:${x.pct>0?"var(--g)":"var(--red)"}">${x.pct>0?"+":""}${x.pct.toFixed(1)}%</div>`);
+  $("priceUp").innerHTML=rises.length?rises.map(line).join(""):'<p class="muted">No rises projected right now.</p>';
+  $("priceDown").innerHTML=falls.length?falls.map(line).join(""):'<p class="muted">No falls projected right now.</p>';
+}
+
+/* Injury/rotation digest: every player FPL itself flags as not nailed-on
+   (status ≠ "a", or a stated % chance of playing below 100), grouped by
+   team, worst doubts first. Pulls straight from the raw element so it
+   includes the actual news string, not just our derived score fields. */
+function renderInjuryDigest(){
+  const flagged=Object.values(ELEMENTS_BY_ID)
+    .filter(p=>p.status!=="a"||(p.chance_of_playing_next_round!=null&&p.chance_of_playing_next_round<100))
+    .sort((a,b)=>(a.chance_of_playing_next_round??0)-(b.chance_of_playing_next_round??0));
+  if(!flagged.length){$("injuryDigest").innerHTML='<p class="muted">No flagged injuries or doubts in the current data.</p>';return}
+  const byTeam={};
+  flagged.forEach(p=>{const t=TEAMS[p.team]?.short_name||"?";(byTeam[t]??=[]).push(p)});
+  const statusWord={i:"Injured",s:"Suspended",u:"Unavailable",d:"Doubtful",n:"Not available"};
+  $("injuryDigest").innerHTML=Object.keys(byTeam).sort().map(t=>{
+    const rows=byTeam[t].map(p=>{
+      const chance=p.chance_of_playing_next_round;
+      return `<div style="padding:6px 0;border-bottom:1px solid #234a3355"><b>${esc(p.web_name)}</b> — ${esc(statusWord[p.status]||"Doubtful")}${chance!=null?` (${chance}% to play)`:""}${p.news?`<div class="muted" style="font-size:11px">${esc(p.news)}</div>`:""}</div>`;
+    }).join("");
+    return `<h3 style="margin-bottom:6px">${esc(t)}</h3>${rows}`;
+  }).join("");
 }
 async function loadBase(){
   setLive("Connecting to Supreme FPL backend…");
   try{
     [BS,FIX]=await Promise.all([getJSON(API+"/bootstrap"),getJSON(API+"/fixtures")]);
-    TEAMS=Object.fromEntries(BS.teams.map(t=>[t.id,t]));GW=currentGW();FXIDX=buildFixtureIndex();
+    TEAMS=Object.fromEntries(BS.teams.map(t=>[t.id,t]));ELEMENTS_BY_ID=Object.fromEntries(BS.elements.map(e=>[e.id,e]));GW=currentGW();FXIDX=buildFixtureIndex();
     ROWS=BS.elements.filter(p=>POS[p.element_type]).map(p=>score(p,FXIDX,GW+1,nGws));
     $("boardNotice").textContent=`Live data loaded through the backend · Current GW${GW}; investment scoring looks ahead from GW${GW+1}.`;
     setLive("Live FPL data loaded · "+new Date().toLocaleTimeString());renderPlayers();autoRestoreCup();
+    renderCaptaincy();renderDifferentials();renderPriceWatch();renderInjuryDigest();
   }catch(e){
     setLive("Backend/API connection failed",true);
     $("boardNotice").innerHTML=`<span class="error">${esc(e.message)}</span><br>Make sure this app is running from its Node server, not as a downloaded HTML file.`;
