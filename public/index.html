@@ -188,7 +188,15 @@ function score(p,fxIdx,from,count){
   const next=upcoming.filter(f=>f.event===from); // immediate next gameweek only (could be 0, 1 or 2 fixtures)
   return {id:p.id,name:p.web_name,full:`${p.first_name} ${p.second_name}`,team:TEAMS[p.team]?.short_name||"?",pos:POS[p.element_type],
     price,form,ep:epNext,lastGW,xgi,lowSample:mins<180,ease,score:s,value:price?s/price:0,chance,rel,next,run:upcoming,
-    status:p.status,priceMomentum:num(p.cost_change_event),netTransfers:num(p.transfers_in_event)-num(p.transfers_out_event),
+    status:p.status,priceMomentum:num(p.cost_change_event),
+    /* Raw (transfers_in - transfers_out) is an absolute headcount, so it
+       structurally favors whichever club is currently most talked-about
+       (e.g. an unbeaten Arsenal start) regardless of whether a given
+       player is actually a better momentum pick. Normalizing by the
+       player's existing owner base turns it into a relative swing —
+       "how much is this changing versus its own baseline" — instead of
+       "which club has the biggest fanbase paying attention this week." */
+    netTransfers:(()=>{const raw=num(p.transfers_in_event)-num(p.transfers_out_event);const ownersEst=num(p.selected_by_percent)*90000+1000;return raw/ownersEst})(),
     ownership:num(p.selected_by_percent)};
 }
 function oppChip(f){
@@ -236,14 +244,24 @@ function sellReason(r){
   if(r.ease<1.5)bits.push("tough fixture run");
   return bits.length?bits.join(" · "):"Poor value for price";
 }
+function topWithTeamCap(sortedList,limit,maxPerTeam){
+  const count={},out=[];
+  for(const r of sortedList){
+    const c=count[r.team]||0;
+    if(c>=maxPerTeam)continue;
+    out.push(r);count[r.team]=c+1;
+    if(out.length>=limit)break;
+  }
+  return out;
+}
 function renderSuggestions(){
   const pool=ROWS.filter(p=>p.price<=budget&&(position==="ALL"||p.pos===position));
-  const buys=pool.filter(r=>r.status==="a"&&r.chance>=75&&r.rel>0.5)
-    .sort((a,b)=>(b.score*(1+Math.max(0,b.priceMomentum)*0.1)+b.netTransfers/50000)-(a.score*(1+Math.max(0,a.priceMomentum)*0.1)+a.netTransfers/50000))
-    .slice(0,5);
-  const sells=pool.filter(r=>r.status!=="a"||r.chance<75||(r.priceMomentum<0&&r.netTransfers<0)||r.ease<1.5)
-    .sort((a,b)=>(a.value)-(b.value))
-    .slice(0,5);
+  const buySorted=pool.filter(r=>r.status==="a"&&r.chance>=75&&r.rel>0.5)
+    .sort((a,b)=>(b.score*(1+Math.max(0,b.priceMomentum)*0.1)+b.netTransfers*2)-(a.score*(1+Math.max(0,a.priceMomentum)*0.1)+a.netTransfers*2));
+  const sellSorted=pool.filter(r=>r.status!=="a"||r.chance<75||(r.priceMomentum<0&&r.netTransfers<0)||r.ease<1.5)
+    .sort((a,b)=>(a.value)-(b.value));
+  const buys=topWithTeamCap(buySorted,5,2);
+  const sells=topWithTeamCap(sellSorted,5,2);
   const row=(r,reasonFn)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid #234a3355"><div><b>${esc(r.name)}</b> <span class="muted">${esc(r.team)} · £${r.price.toFixed(1)}m</span><div class="muted" style="font-size:11px">${esc(reasonFn(r))}</div></div><div class="score">${r.score.toFixed(1)}</div></div>`;
   $("buyList").innerHTML=buys.length?buys.map(r=>row(r,buyReason)).join(""):'<p class="muted">No standout candidates in this filter.</p>';
   $("sellList").innerHTML=sells.length?sells.map(r=>row(r,sellReason)).join(""):'<p class="muted">No red flags in this filter.</p>';
