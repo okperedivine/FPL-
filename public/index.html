@@ -30,6 +30,7 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 <nav class="nav">
 <button data-tab="board" class="active">Player Board</button>
 <button data-tab="h2h">H2H Analyst</button>
+<button data-tab="team">Team Analyzer</button>
 <button data-tab="cup">Supreme Carabao Cup</button>
 </nav>
 
@@ -62,6 +63,20 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 <div class="chatbar"><input id="query" placeholder="Ask the H2H bot…"><button class="btn primary" id="ask">Ask</button></div>
 </div>
 </div>
+</section>
+
+<section id="team" class="tab hidden">
+<div class="panel">
+<h2>Team Analyzer</h2>
+<p class="muted">Enter a numeric FPL Team ID (found in your team's URL on the FPL site/app), or pick a team by name if you've loaded an H2H league.</p>
+<div class="controls" style="grid-template-columns:1fr 1fr">
+<div><label>Team ID</label><input id="teamId" placeholder="e.g. 1234567"></div>
+<div><label>Or pick from loaded league</label><select id="teamPicker"><option value="">— none loaded —</option></select></div>
+</div>
+<button class="btn primary" id="analyzeTeam" style="margin-top:9px">Analyze Team</button>
+<div id="teamMsg" class="notice" style="margin-top:10px">No team analyzed yet.</div>
+</div>
+<div id="teamResult"></div>
 </section>
 
 <section id="cup" class="tab hidden">
@@ -100,7 +115,7 @@ function score(p,avg){
   const chance=p.chance_of_playing_next_round==null?100:num(p.chance_of_playing_next_round),mins=num(p.minutes),starts=num(p.starts);
   const rel=starts?Math.min(mins/(starts*90+1),1):mins?1:.3,ease=5-(avg[p.team]??3);
   const s=(form*2.2+ppg+ep*1.6+xgi*6+ict*.05+ease*1.3)*(chance/100)*(.5+.5*rel);
-  return {id:p.id,name:p.web_name,full:`${p.first_name} ${p.second_name}`,team:TEAMS[p.team]?.short_name||"?",pos:POS[p.element_type],price,form,ep,xgi,ease,score:s,value:price?s/price:0}
+  return {id:p.id,name:p.web_name,full:`${p.first_name} ${p.second_name}`,team:TEAMS[p.team]?.short_name||"?",pos:POS[p.element_type],price,form,ep,xgi,ease,score:s,value:price?s/price:0,chance,rel}
 }
 function renderButtons(){
   $("pos").innerHTML=["ALL","GKP","DEF","MID","FWD"].map(x=>`<button class="pill ${position===x?"active":""}" data-pos="${x}">${x}</button>`).join("");
@@ -157,6 +172,8 @@ async function loadLeague(){
 function renderStandings(){
   STANDINGS.sort((a,b)=>a.rank-b.rank);
   $("standings").innerHTML='<h3>Current standings</h3><div class="tableWrap"><table style="min-width:520px"><thead><tr><th>#</th><th>Team</th><th>Pts</th><th>W-D-L</th></tr></thead><tbody>'+STANDINGS.map(t=>`<tr><td>${t.rank}</td><td><b>${esc(t.name)}</b><div class="muted">${esc(t.manager)}</div></td><td>${t.total}</td><td>${t.wins}-${t.draws}-${t.losses}</td></tr>`).join("")+'</tbody></table></div>';
+  const picker=$("teamPicker");
+  picker.innerHTML='<option value="">— pick a team —</option>'+STANDINGS.map(t=>`<option value="${t.entry}">${esc(t.name)}</option>`).join("");
 }
 function preGW(gw){
   const base=STANDINGS.map(t=>({...t,total:0,wins:0,draws:0,losses:0})),m=Object.fromEntries(base.map(t=>[String(t.entry),t]));
@@ -285,6 +302,60 @@ async function answer(q){
 }
 $("leagueId").value=localStorage.getItem("supreme_h2h_id")||"";
 renderButtons();renderCup();loadBase();
+
+/* ---- Team Analyzer ---- */
+$("teamPicker").onchange=()=>{if($("teamPicker").value)$("teamId").value=$("teamPicker").value};
+$("analyzeTeam").onclick=()=>{const id=$("teamId").value.trim();if(!id){$("teamMsg").textContent="Enter a team ID or pick one from a loaded league.";return}analyzeTeam(id)};
+function percentileFor(pos,val,byPos){const arr=byPos[pos]||[];if(!arr.length)return 50;let c=0;for(const v of arr)if(v<=val)c++;return Math.round(c/arr.length*100)}
+function fixtureLabel(ease){return ease>=3.3?"good fixtures":ease<=2.3?"tough fixtures":"mixed fixtures"}
+async function analyzeTeam(id){
+  if(!validId(id)){$("teamMsg").innerHTML='<span class="error">Team ID must be numeric.</span>';return}
+  $("teamMsg").textContent="Analyzing team through backend…";$("teamResult").innerHTML="";
+  try{
+    if(!BS||!ROWS.length) await loadBase();
+    const gw=GW;
+    const [info,picksData]=await Promise.all([getJSON(API+"/entry/"+id),getJSON(API+`/entry/${id}/picks/${gw}`)]);
+    const byId=new Map(ROWS.map(r=>[r.id,r]));
+    const byPos={};ROWS.forEach(r=>{(byPos[r.pos]??=[]).push(r.score)});
+    const squad=(picksData.picks||[]).map(p=>({...p,info:byId.get(p.element)})).filter(p=>p.info);
+    if(!squad.length) throw Error("Could not match this team's squad to current player data.");
+    const xi=squad.filter(p=>p.multiplier>0);
+    const bench=squad.filter(p=>p.multiplier===0);
+    const withPct=xi.map(p=>({...p,pct:percentileFor(p.info.pos,p.info.score,byPos)}));
+    const teamName=info.name||"This team";const managerName=[info.player_first_name,info.player_last_name].filter(Boolean).join(" ");
+    const bank=((info.last_deadline_bank??0)/10).toFixed(1);const value=((info.last_deadline_value??0)/10).toFixed(1);
+    const rating=Math.round(withPct.reduce((a,p)=>a+p.pct*(p.multiplier>=2?2:1),0)/withPct.reduce((a,p)=>a+(p.multiplier>=2?2:1),0));
+    const label=rating>=75?"Elite":rating>=60?"Strong":rating>=40?"Average":rating>=25?"Below average":"Weak";
+    const sorted=[...withPct].sort((a,b)=>b.pct-a.pct);
+    const strengths=sorted.slice(0,3).map(p=>`⭐ ${esc(p.info.name)} (${p.info.pos}) — ${p.pct}th percentile for the position, ${fixtureLabel(p.info.ease)}.`);
+    const weakByScore=[...withPct].sort((a,b)=>a.pct-b.pct).slice(0,3);
+    const injuryFlags=squad.filter(p=>p.info.chance<75).map(p=>`⚠️ ${esc(p.info.name)} — ${p.info.chance}% chance of playing next round (injury/rotation doubt).`);
+    const fixtureFlags=xi.filter(p=>p.info.ease<=2.3).map(p=>`📅 ${esc(p.info.name)} faces ${fixtureLabel(p.info.ease)} over the lookahead window.`);
+    const weaknesses=[...weakByScore.map(p=>`🔻 ${esc(p.info.name)} (${p.info.pos}) — only ${p.pct}th percentile among ${p.info.pos}s right now.`),...injuryFlags,...fixtureFlags].slice(0,6);
+    const ownedIds=new Set(squad.map(p=>p.element));
+    const weakSlots=weakByScore.slice(0,2);
+    const suggestions=weakSlots.map(w=>{
+      const budget=w.info.price+parseFloat(bank);
+      const cands=ROWS.filter(r=>r.pos===w.info.pos&&!ownedIds.has(r.id)&&r.price<=budget+0.001&&r.score>w.info.score).sort((a,b)=>b.score-a.score).slice(0,3);
+      return {out:w.info,budget,cands};
+    }).filter(s=>s.cands.length);
+    let sugHTML=suggestions.length?suggestions.map(s=>`<div class="notice" style="margin-bottom:8px"><b>Consider replacing ${esc(s.out.name)}</b> (£${s.out.price.toFixed(1)}m, budget incl. bank ≈£${s.budget.toFixed(1)}m):<br>`+s.cands.map(c=>`→ ${esc(c.name)} (${c.team}) £${c.price.toFixed(1)}m — score ${c.score.toFixed(1)}, ${fixtureLabel(c.ease)}`).join("<br>")+`</div>`).join(""):`<p class="muted">No clear upgrades found within budget for your weakest players right now.</p>`;
+    $("teamMsg").textContent=`Loaded ${teamName}${managerName?" · "+managerName:""} · GW${gw} · Team value £${value}m · Bank £${bank}m`;
+    $("teamResult").innerHTML=`
+      <div class="panel"><div class="grid g4">
+        <div class="stat"><small>Rating</small><b>${rating}/100</b><small>${label}</small></div>
+        <div class="stat"><small>Squad value</small><b>£${value}m</b></div>
+        <div class="stat"><small>Bank</small><b>£${bank}m</b></div>
+        <div class="stat"><small>Bench players</small><b>${bench.length}</b></div>
+      </div></div>
+      <div class="grid g2">
+        <div class="panel"><h3>Strengths</h3>${strengths.map(s=>`<p class="notice" style="margin-bottom:7px">${s}</p>`).join("")||"<p class='muted'>Nothing standout found.</p>"}</div>
+        <div class="panel"><h3>Weaknesses & risks</h3>${weaknesses.map(s=>`<p class="notice" style="margin-bottom:7px">${s}</p>`).join("")||"<p class='muted'>No major concerns found.</p>"}</div>
+      </div>
+      <div class="panel"><h3>Suggested transfers</h3>${sugHTML}</div>
+    `;
+  }catch(e){$("teamMsg").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
+}
 </script>
 </body>
 </html>
