@@ -1,0 +1,75 @@
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no">
+<style>
+*{box-sizing:border-box}html{overflow-x:hidden;max-width:100vw}body{margin:0;background:#06100b;color:#eef7f1;font-family:Inter,Arial,sans-serif;overflow-x:hidden;max-width:100vw;overscroll-behavior-x:none}
+:root{--g:#35d07f;--p:#0d1d15;--p2:#11281c;--line:#234a33;--muted:#9db3a5;--gold:#ffd166;--red:#ff7979}
+.wrap{width:min(1400px,94%);margin:auto}.hero{padding:34px 0 20px}.k{color:var(--g);font-size:12px;font-weight:800;letter-spacing:.15em;text-transform:uppercase}.hero h1{font-size:clamp(36px,6vw,64px);margin:8px 0}.hero p{color:var(--muted);line-height:1.6;max-width:900px}.live{font-size:12px;color:#bdd1c4}.dot{display:inline-block;width:8px;height:8px;background:var(--g);border-radius:50%;margin-right:7px}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 18px}.nav button,.btn,.pill{border:1px solid var(--line);background:#0a1710;color:#e8f2eb;border-radius:10px;padding:10px 14px;font-weight:700}.nav button.active,.btn.primary,.pill.active{background:#198a51;border-color:#35d07f}.btn.gold{background:#5e4614;border-color:#a98128}
+.panel{background:linear-gradient(145deg,#102319,#08130d);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 12px 35px #0005}.grid{display:grid;gap:14px}.g2{grid-template-columns:1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}@media(max-width:850px){.g2,.g4{grid-template-columns:1fr}}
+.controls{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}@media(max-width:900px){.controls{grid-template-columns:1fr 1fr}}@media(max-width:550px){.controls{grid-template-columns:1fr}}
+label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bottom:6px}input{width:100%;background:#06100b;color:#fff;border:1px solid var(--line);border-radius:9px;padding:11px}.pills{display:flex;gap:6px;flex-wrap:wrap}
+.tableWrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{width:100%;border-collapse:collapse;min-width:850px}th,td{padding:10px;border-bottom:1px solid #234a3355;text-align:left;font-size:13px}th{font-size:10px;text-transform:uppercase;color:#9fbaaa;background:#10271c}.muted{color:var(--muted)}.score{color:var(--g);font-weight:900}.tag{background:#173a26;padding:4px 7px;border-radius:99px;font-size:10px;font-weight:800}
+.notice{padding:12px;border:1px solid var(--line);background:#0b1911;border-radius:10px;color:#b9cbbf;font-size:13px;line-height:1.5}.stat{border:1px solid var(--line);border-radius:12px;padding:15px;background:#ffffff04}.stat small{color:var(--muted)}.stat b{display:block;font-size:26px;margin-top:4px}
+.fxrow{display:flex;gap:4px;flex-wrap:wrap;max-width:220px}.fx{font-size:10px;font-weight:800;padding:3px 6px;border-radius:6px;color:#06100b;white-space:nowrap}.fx1,.fx2{background:var(--g)}.fx3{background:var(--gold)}.fx4,.fx5{background:var(--red)}.fx-blank{background:#3a4a41;color:#cfe3d7}
+.chat{height:420px;overflow:auto;display:flex;flex-direction:column;gap:9px}.bubble{padding:11px 13px;border-radius:13px;white-space:pre-wrap;line-height:1.45;max-width:92%}.bot{background:#10271c;border:1px solid var(--line)}.user{background:#198a51;align-self:flex-end}.quick{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.quick button{border:1px solid var(--line);background:#08130d;color:#bdd0c2;border-radius:999px;padding:7px 10px;font-size:11px}.chatbar{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:10px}
+.bracket{overflow:auto;overscroll-behavior-x:contain}
+.roundTitle{text-align:center;color:var(--gold);font-size:11px;font-weight:900;text-transform:uppercase;margin-bottom:10px}
+.match{background:#07120c;border:1px solid var(--line);border-radius:11px;overflow:hidden;position:relative}
+.match.tbd{background:#07120c88;border-style:dashed;border-color:#2b5a3d;opacity:.6}
+.row{display:flex;justify-content:space-between;padding:9px;border-bottom:1px solid #234a3366;font-size:12px}
+.row:last-child{border:0}
+.win{background:#35d07f16;color:#dff9e9;font-weight:900}
+.champ{text-align:center;border:1px solid #a98128;background:#211b0b;border-radius:15px;padding:20px}
+.trophy{font-size:42px}
+/* "VS" divider pinned to the seam between the two rows of a match card, so
+   every tie reads like a real head-to-head fixture, not a two-line list. */
+.vsdiv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#0d1d15;border:1px solid var(--line);color:var(--muted);font-size:8px;font-weight:900;padding:1px 5px;border-radius:99px;letter-spacing:.06em;z-index:2}
+/* Round 1 sits on its own, above the two-sided bracket — it's the bottom-8
+   play-in, not one of the two halves. Its undecided ties can still appear
+   as "Ball X or Ball Y" refs inside the R16 columns below (see matchHTML).
+   auto-fit/minmax means this naturally stacks into a single vertical column
+   of real "vs" cards on narrow/mobile screens, and only spreads into a row
+   once there's room — no separate mobile media query needed. */
+.r1standalone{margin-bottom:26px}
+.r1grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.r1grid .match{min-height:78px;display:flex;align-items:stretch;position:relative}
+.r1grid .match .row{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 8px;border:0;text-align:center}
+.r1grid .match .row span{font-size:12px;color:#cfe3d7}
+.r1grid .match .row b{font-size:20px}
+.r1grid .match::after{content:"";position:absolute;left:50%;top:14px;bottom:14px;width:1px;background:var(--line)}
+/* Two-sided bracket: left half (R16→QF→SF) and right half (mirrored,
+   SF→QF→R16) converge on a centered Final. Each column is a flex track;
+   giving every column in a side the same fixed height and using
+   justify-content:space-around lets fewer matches (QF, SF) automatically
+   center themselves between the pair that feeds them, without hand-tuned
+   margins per round. --bgap drives both the flex gaps and the connector-
+   line math below, so the lines always meet the gap they're drawn across. */
+.bracket2{--bgap:22px;display:flex;gap:var(--bgap);min-width:0;align-items:center;justify-content:center;justify-content:safe center;padding:10px 4px}
+.bSide{display:flex;gap:var(--bgap)}
+.bColWrap{display:flex;flex-direction:column}
+.bCol{display:flex;flex-direction:column;justify-content:space-around;width:150px;height:420px}
+.bFinalWrap{display:flex;flex-direction:column;align-items:center;gap:12px;position:relative}
+.bFinalCol{display:flex;flex-direction:column;justify-content:center;width:150px;height:420px}
+/* Connector lines: each pair of matches gets an elbow (two stubs + a
+   vertical bar) pointing at the single box it feeds in the next column;
+   a lone match (SF, or a still-undrawn slot) just gets a straight stub.
+   .rtl mirrors everything onto the left edge for the right-hand side of
+   the bracket, which reads QF→R16 instead of R16→QF. */
+.bPair,.bSingle{position:relative;display:flex;flex-direction:column;justify-content:space-between}
+.bPair{gap:8px}
+/* per-match stub: box edge → the gap's midpoint */
+.bPair>.match::after{content:"";position:absolute;top:50%;right:calc(var(--bgap) / -2);width:calc(var(--bgap) / 2);height:0;border-top:2px solid var(--line)}
+/* vertical bar joining the two stubs, at the gap's midpoint */
+.bPair::before{content:"";position:absolute;top:25%;bottom:25%;right:calc(var(--bgap) / -2);width:0;border-right:2px solid var(--line)}
+/* spur continuing from the vertical bar's centre on into the next column */
+.bPair::after{content:"";position:absolute;top:50%;right:calc(var(--bgap) * -1);width:calc(var(--bgap) / 2);height:0;border-top:2px solid var(--line)}
+/* a lone match (e.g. SF→Final) just gets one straight stub, full gap width */
+.bSingle::after{content:"";position:absolute;top:50%;right:calc(var(--bgap) * -1);width:var(--bgap);height:0;border-top:2px solid var(--line)}
+/* .rtl mirrors every line above onto the left edge, for the right-hand side */
+.bPair.rtl>.match::after{right:auto;left:calc(var(--bgap) / -2)}
+.bPair.rtl::before{right:auto;left:calc(var(--bgap) / -2)}
+.bPair.rtl::after{right:auto;left:calc(var(--bgap) * -1)}
+.bSingle.rtl::after{right:auto;left:calc(var(--bgap) * -1)}
+.error{color:#ffad9d}.loading{color:#bdd1c4}.hidden{display:none}
+</style></head><body><div class="wrap">
+<div class="r1standalone"><div class="roundTitle">Round 1 · GW9</div><div class="r1grid"><div class="match"><div class="row"><span>Seed 13</span><b>—</b></div><div class="vsdiv">vs</div><div class="row"><span>Seed 20</span><b>—</b></div></div><div class="match"><div class="row"><span>Seed 14</span><b>—</b></div><div class="vsdiv">vs</div><div class="row"><span>Seed 19</span><b>—</b></div></div><div class="match"><div class="row"><span>Seed 15</span><b>—</b></div><div class="vsdiv">vs</div><div class="row"><span>Seed 18</span><b>—</b></div></div><div class="match"><div class="row"><span>Seed 16</span><b>—</b></div><div class="vsdiv">vs</div><div class="row"><span>Seed 17</span><b>—</b></div></div></div></div><div class="bracket"><div class="bracket2"><div class="bSide left"><div class="bColWrap"><div class="roundTitle">R16</div><div class="bCol"><div class="bPair"><div class="match"><div class="row win"><span>Seed 1</span><b>3</b></div><div class="vsdiv">vs</div><div class="row"><span>Seed 12</span><b>2</b></div></div><div class="match"><div class="row"><span>Seed 5</span><b>—</b></div><div class="vsdiv">vs</div><div class="row"><span>Seed 13/Seed 20</span><b>—</b></div></div></div><div class="bPair"><div class="match"><div class="row win"><span>Seed 3</span><b>3</b></div><div class="vsdiv">vs</div><div class="row"><span>Seed 10</span><b>2</b></div></div><div class="match"><div class="row"><span>Seed 7</span><b>—</b></div><div class="vsdiv">vs</div><div class="row"><span>Seed 14/Seed 19</span><b>—</b></div></div></div></div></div><div class="bColWrap"><div class="roundTitle">QF</div><div class="bCol"><div class="bPair"><div class="match tbd"><div class="row">TBD</div><div class="row">TBD</div></div><div class="match tbd"><div class="row">TBD</div><div class="row">TBD</div></div></div></div></div><div class="bColWrap"><div class="roundTitle">SF</div><div class="bCol"><div class="bSingle"><div class="match tbd"><div class="row">TBD</div><div class="row">TBD</div></div></div></div></div></div><div class="bFinalWrap"><div class="roundTitle">Final</div><div class="bFinalCol"><div class="match tbd"><div class="row">TBD</div><div class="row">TBD</div></div></div></div><div class="bSide right"><div class="bColWrap"><div class="roundTitle">SF</div><div class="bCol"><div class="bSingle rtl"><div class="match tbd"><div class="row">TBD</div><div class="row">TBD</div></div></div></div></div><div class="bColWrap"><div class="roundTitle">QF</div><div class="bCol"><div class="bPair rtl"><div class="match tbd"><div class="row">TBD</div><div class="row">TBD</div></div><div class="match tbd"><div class="row">TBD</div><div class="row">TBD</div></div></div></div></div><div class="bColWrap"><div class="roundTitle">R16</div><div class="bCol"><div class="bPair rtl"><div class="match"><div class="row"><span>Seed 2</span><b>—</b></div><div class="vsdiv">vs</div><div class="row"><span>Seed 15/Seed 18</span><b>—</b></div></div><div class="match"><div class="row"><span>Seed 4</span><b>2</b></div><div class="vsdiv">vs</div><div class="row win"><span>Seed 11</span><b>3</b></div></div></div><div class="bPair rtl"><div class="match"><div class="row"><span>Seed 6</span><b>—</b></div><div class="vsdiv">vs</div><div class="row"><span>Seed 16/Seed 17</span><b>—</b></div></div><div class="match"><div class="row"><span>Seed 8</span><b>2</b></div><div class="vsdiv">vs</div><div class="row win"><span>Seed 9</span><b>3</b></div></div></div></div></div></div></div></div></div></body></html>
