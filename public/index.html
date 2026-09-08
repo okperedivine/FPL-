@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no">
 <title>Supreme FPL Hub</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#06100b;color:#eef7f1;font-family:Inter,Arial,sans-serif}
+*{box-sizing:border-box}html{overflow-x:hidden;max-width:100vw}body{margin:0;background:#06100b;color:#eef7f1;font-family:Inter,Arial,sans-serif;overflow-x:hidden;max-width:100vw;overscroll-behavior-x:none}
 :root{--g:#35d07f;--p:#0d1d15;--p2:#11281c;--line:#234a33;--muted:#9db3a5;--gold:#ffd166;--red:#ff7979}
 .wrap{width:min(1400px,94%);margin:auto}.hero{padding:34px 0 20px}.k{color:var(--g);font-size:12px;font-weight:800;letter-spacing:.15em;text-transform:uppercase}.hero h1{font-size:clamp(36px,6vw,64px);margin:8px 0}.hero p{color:var(--muted);line-height:1.6;max-width:900px}.live{font-size:12px;color:#bdd1c4}.dot{display:inline-block;width:8px;height:8px;background:var(--g);border-radius:50%;margin-right:7px}
 .nav{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 18px}.nav button,.btn,.pill{border:1px solid var(--line);background:#0a1710;color:#e8f2eb;border-radius:10px;padding:10px 14px;font-weight:700}.nav button.active,.btn.primary,.pill.active{background:#198a51;border-color:#35d07f}.btn.gold{background:#5e4614;border-color:#a98128}
@@ -16,31 +16,64 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 .notice{padding:12px;border:1px solid var(--line);background:#0b1911;border-radius:10px;color:#b9cbbf;font-size:13px;line-height:1.5}.stat{border:1px solid var(--line);border-radius:12px;padding:15px;background:#ffffff04}.stat small{color:var(--muted)}.stat b{display:block;font-size:26px;margin-top:4px}
 .fxrow{display:flex;gap:4px;flex-wrap:wrap;max-width:220px}.fx{font-size:10px;font-weight:800;padding:3px 6px;border-radius:6px;color:#06100b;white-space:nowrap}.fx1,.fx2{background:var(--g)}.fx3{background:var(--gold)}.fx4,.fx5{background:var(--red)}.fx-blank{background:#3a4a41;color:#cfe3d7}
 .chat{height:420px;overflow:auto;display:flex;flex-direction:column;gap:9px}.bubble{padding:11px 13px;border-radius:13px;white-space:pre-wrap;line-height:1.45;max-width:92%}.bot{background:#10271c;border:1px solid var(--line)}.user{background:#198a51;align-self:flex-end}.quick{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.quick button{border:1px solid var(--line);background:#08130d;color:#bdd0c2;border-radius:999px;padding:7px 10px;font-size:11px}.chatbar{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:10px}
-.bracket{overflow:auto}
+.bracket{overflow:auto;overscroll-behavior-x:contain}
 .roundTitle{text-align:center;color:var(--gold);font-size:11px;font-weight:900;text-transform:uppercase;margin-bottom:10px}
-.match{background:#07120c;border:1px solid var(--line);border-radius:11px;overflow:hidden}
+.match{background:#07120c;border:1px solid var(--line);border-radius:11px;overflow:hidden;position:relative}
+.match.tbd{background:#07120c88;border-style:dashed;border-color:#2b5a3d;opacity:.6}
 .row{display:flex;justify-content:space-between;padding:9px;border-bottom:1px solid #234a3366;font-size:12px}
 .row:last-child{border:0}
 .win{background:#35d07f16;color:#dff9e9;font-weight:900}
 .champ{text-align:center;border:1px solid #a98128;background:#211b0b;border-radius:15px;padding:20px}
 .trophy{font-size:42px}
+/* "VS" divider pinned to the seam between the two rows of a match card, so
+   every tie reads like a real head-to-head fixture, not a two-line list. */
+.vsdiv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#0d1d15;border:1px solid var(--line);color:var(--muted);font-size:8px;font-weight:900;padding:1px 5px;border-radius:99px;letter-spacing:.06em;z-index:2}
 /* Round 1 sits on its own, above the two-sided bracket — it's the bottom-8
    play-in, not one of the two halves. Its undecided ties can still appear
-   as "Ball X or Ball Y" refs inside the R16 columns below (see matchHTML). */
+   as "Ball X or Ball Y" refs inside the R16 columns below (see matchHTML).
+   auto-fit/minmax means this naturally stacks into a single vertical column
+   of real "vs" cards on narrow/mobile screens, and only spreads into a row
+   once there's room — no separate mobile media query needed. */
 .r1standalone{margin-bottom:26px}
-.r1grid{display:grid;grid-template-columns:repeat(4,220px);gap:16px}
+.r1grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.r1grid .match{min-height:78px;display:flex;align-items:stretch;position:relative}
+.r1grid .match .row{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 8px;border:0;text-align:center}
+.r1grid .match .row span{font-size:12px;color:#cfe3d7}
+.r1grid .match .row b{font-size:20px}
+.r1grid .match::after{content:"";position:absolute;left:50%;top:14px;bottom:14px;width:1px;background:var(--line)}
 /* Two-sided bracket: left half (R16→QF→SF) and right half (mirrored,
    SF→QF→R16) converge on a centered Final. Each column is a flex track;
    giving every column in a side the same fixed height and using
    justify-content:space-around lets fewer matches (QF, SF) automatically
    center themselves between the pair that feeds them, without hand-tuned
-   margins per round. */
-.bracket2{display:flex;gap:18px;min-width:1520px;align-items:center}
-.bSide{display:flex;gap:18px}
+   margins per round. --bgap drives both the flex gaps and the connector-
+   line math below, so the lines always meet the gap they're drawn across. */
+.bracket2{--bgap:22px;display:flex;gap:var(--bgap);min-width:0;align-items:center;justify-content:center;justify-content:safe center;padding:10px 4px}
+.bSide{display:flex;gap:var(--bgap)}
 .bColWrap{display:flex;flex-direction:column}
-.bCol{display:flex;flex-direction:column;justify-content:space-around;width:210px;height:540px}
-.bFinalWrap{display:flex;flex-direction:column;align-items:center;gap:14px}
-.bFinalCol{display:flex;flex-direction:column;justify-content:center;width:210px;height:540px}
+.bCol{display:flex;flex-direction:column;justify-content:space-around;width:150px;height:420px}
+.bFinalWrap{display:flex;flex-direction:column;align-items:center;gap:12px;position:relative}
+.bFinalCol{display:flex;flex-direction:column;justify-content:center;width:150px;height:420px}
+/* Connector lines: each pair of matches gets an elbow (two stubs + a
+   vertical bar) pointing at the single box it feeds in the next column;
+   a lone match (SF, or a still-undrawn slot) just gets a straight stub.
+   .rtl mirrors everything onto the left edge for the right-hand side of
+   the bracket, which reads QF→R16 instead of R16→QF. */
+.bPair,.bSingle{position:relative;display:flex;flex-direction:column;justify-content:space-between}
+.bPair{gap:8px}
+/* per-match stub: box edge → the gap's midpoint */
+.bPair>.match::after{content:"";position:absolute;top:50%;right:calc(var(--bgap) / -2);width:calc(var(--bgap) / 2);height:0;border-top:2px solid var(--line)}
+/* vertical bar joining the two stubs, at the gap's midpoint */
+.bPair::before{content:"";position:absolute;top:25%;bottom:25%;right:calc(var(--bgap) / -2);width:0;border-right:2px solid var(--line)}
+/* spur continuing from the vertical bar's centre on into the next column */
+.bPair::after{content:"";position:absolute;top:50%;right:calc(var(--bgap) * -1);width:calc(var(--bgap) / 2);height:0;border-top:2px solid var(--line)}
+/* a lone match (e.g. SF→Final) just gets one straight stub, full gap width */
+.bSingle::after{content:"";position:absolute;top:50%;right:calc(var(--bgap) * -1);width:var(--bgap);height:0;border-top:2px solid var(--line)}
+/* .rtl mirrors every line above onto the left edge, for the right-hand side */
+.bPair.rtl>.match::after{right:auto;left:calc(var(--bgap) / -2)}
+.bPair.rtl::before{right:auto;left:calc(var(--bgap) / -2)}
+.bPair.rtl::after{right:auto;left:calc(var(--bgap) * -1)}
+.bSingle.rtl::after{right:auto;left:calc(var(--bgap) * -1)}
 .error{color:#ffad9d}.loading{color:#bdd1c4}.hidden{display:none}
 </style>
 </head>
@@ -724,14 +757,32 @@ async function createCup(){
 // resultLocked defaults to namesLocked so R1/QF/SF/Final — where both
 // happen at the same gameweek — can still call this with one flag.
 function matchHTML(m,namesLocked=true,resultLocked=namesLocked){
-  if(!m)return'<div class="match"><div class="row">TBD</div><div class="row">TBD</div></div>';
+  if(!m)return'<div class="match tbd"><div class="row">TBD</div><div class="row">TBD</div></div>';
   const label=x=>{
     if(!x)return"TBD";
-    if(x.isRef)return`Ball ${x.seedA} or Ball ${x.seedB}`; // tie not yet decided
-    return namesLocked?x.name:`Ball ${x.seed}`;
+    if(x.isRef)return`Seed ${x.seedA}/Seed ${x.seedB}`; // tie not yet decided
+    return namesLocked?x.name:`Seed ${x.seed}`;
   };
   const scoreOf=(x,s)=>(!x||x.isRef)?"—":(resultLocked?(s??"—"):"");
-  return`<div class="match"><div class="row ${resultLocked&&m.win==="a"?"win":""}"><span>${esc(label(m.a))}</span><b>${scoreOf(m.a,m.as)}</b></div><div class="row ${resultLocked&&m.win==="b"?"win":""}"><span>${esc(label(m.b))}</span><b>${scoreOf(m.b,m.bs)}</b></div></div>`;
+  return`<div class="match"><div class="row ${resultLocked&&m.win==="a"?"win":""}"><span>${esc(label(m.a))}</span><b>${scoreOf(m.a,m.as)}</b></div><div class="vsdiv">vs</div><div class="row ${resultLocked&&m.win==="b"?"win":""}"><span>${esc(label(m.b))}</span><b>${scoreOf(m.b,m.bs)}</b></div></div>`;
+}
+// Pads a round's match array up to its full fixed size with nulls, so the
+// bracket always shows the complete skeleton of blank/dashed "TBD" boxes —
+// even rounds that haven't been drawn yet — and each box fills in on its
+// own once the round before it completes.
+function padMatches(arr,n){const out=[...(arr||[])];while(out.length<n)out.push(null);return out}
+// Groups a column's match cards into connector-line units: every 2 matches
+// become a .bPair (feeding one box in the next column), a lone leftover
+// becomes a .bSingle. mirror=true flips the connector lines onto the left
+// edge, for the right-hand side of the bracket.
+function connectCol(htmlArr,mirror){
+  const cls=mirror?" rtl":"";
+  const out=[];
+  for(let i=0;i<htmlArr.length;i+=2){
+    if(htmlArr[i+1]!==undefined)out.push(`<div class="bPair${cls}">${htmlArr[i]}${htmlArr[i+1]}</div>`);
+    else out.push(`<div class="bSingle${cls}">${htmlArr[i]}</div>`);
+  }
+  return out.join("");
 }
 function renderCup(){
   const el=$("cupContent");
@@ -740,7 +791,7 @@ function renderCup(){
   const status=`Current GW${GW}. Results are shown only when the required gameweek has data.`;
   const r1Locked=GW>=CUP.rules.r1, r16Locked=GW>=CUP.rules.r16;
   el.innerHTML=`<div class="grid g4"><div class="stat"><small>Round 1</small><b>GW9</b><small>Seeds 13–20</small></div><div class="stat"><small>Round of 16</small><b>GW15</b><small>8 + 8</small></div><div class="stat"><small>Quarterfinal</small><b>GW24</b></div><div class="stat"><small>Final</small><b>GW35</b><small>🏆</small></div></div>
-  <div class="notice" style="margin:14px 0"><b>Rule:</b> cup winners are determined by normal FPL points from the specified gameweek, not H2H league points. Round 1 and Round of 16 are drawn together the moment table positions lock at the end of GW8 — a genuine random draw (Ball 1 through Ball 20), not seeded by rank, split into a left half and a right half that stay separate all the way to the Final. Boxes show only a ball number until GW9, when Round 1 is decided and every Round of 16 identity is known — an undecided Round 1 tie shows both possible balls (e.g. "Ball 17 or Ball 20") until then. Round of 16 names appear from GW9, but scores and winners for that round still only appear once it's actually played at GW15. Later rounds (QF onward) are only drawn once their predecessor round fully completes. ${esc(status)}</div>
+  <div class="notice" style="margin:14px 0"><b>Rule:</b> cup winners are determined by normal FPL points from the specified gameweek, not H2H league points. Round 1 and Round of 16 are drawn together the moment table positions lock at the end of GW8 — a genuine random draw across Seed 1 through Seed 20 (the number is just table position, not bracket seeding), split into a left half and a right half that stay separate all the way to the Final. Boxes show only a seed number until GW9, when Round 1 is decided and every Round of 16 identity is known — an undecided Round 1 tie shows both possible seeds (e.g. "Seed 17/Seed 20") until then. Round of 16 names appear from GW9, but scores and winners for that round still only appear once it's actually played at GW15. Later rounds (QF onward) are only drawn once their predecessor round fully completes. ${esc(status)}</div>
   ${CUP.champion?`<div class="champ"><div class="trophy">🏆</div><h2>${esc(CUP.champion.name)}</h2><div class="muted">Champion · GW35</div></div>`:""}
   <div class="r1standalone">
     <div class="roundTitle">Round 1 · GW9 (seeds 13–20, feeds the Round of 16 below)</div>
@@ -748,27 +799,32 @@ function renderCup(){
   </div>
   <div class="bracket"><div class="bracket2">
   ${(()=>{
-    const r16=CUP.r16||[],qf=CUP.qf||[],sf=CUP.sf||[];
+    // Every round is padded to its full fixed size (4/4/2/2/1/1/1) so the
+    // whole bracket skeleton — including rounds not drawn yet — renders as
+    // dashed "TBD" boxes immediately, then fills in round by round.
+    const r16=padMatches(CUP.r16,8),qf=padMatches(CUP.qf,4),sf=padMatches(CUP.sf,2),final=padMatches(CUP.final,1);
     const r16L=r16.slice(0,4),r16R=r16.slice(4,8);
     const qfL=qf.slice(0,2),qfR=qf.slice(2,4);
     const sfL=sf.slice(0,1),sfR=sf.slice(1,2);
     // R16 names reveal once Round 1 is decided (GW9) — every R16 slot is
     // known by then, byes included — but the score/win only appears once
-    // that tie is actually played at GW15.
-    const col=(title,matches,namesLocked,resultLocked)=>`<div class="bColWrap"><div class="roundTitle">${title}</div><div class="bCol">${matches.map(m=>matchHTML(m,namesLocked,resultLocked)).join("")}</div></div>`;
+    // that tie is actually played at GW15. mirror=true draws the
+    // connector lines on the left edge instead of the right, for the
+    // right-hand side of the bracket (QF→R16 reading outward from Final).
+    const col=(title,matches,namesLocked,resultLocked,mirror)=>`<div class="bColWrap"><div class="roundTitle">${title}</div><div class="bCol">${connectCol(matches.map(m=>matchHTML(m,namesLocked,resultLocked)),mirror)}</div></div>`;
     return `<div class="bSide left">
-      ${col("R16 · GW15",r16L,r1Locked,r16Locked)}
-      ${col("QF · GW24",qfL,true,true)}
-      ${col("SF · GW29",sfL,true,true)}
+      ${col("R16 · GW15",r16L,r1Locked,r16Locked,false)}
+      ${col("QF · GW24",qfL,true,true,false)}
+      ${col("SF · GW29",sfL,true,true,false)}
     </div>
     <div class="bFinalWrap">
       <div class="roundTitle">Final · GW35</div>
-      <div class="bFinalCol">${(CUP.final||[]).map(m=>matchHTML(m)).join("")}</div>
+      <div class="bFinalCol">${final.map(m=>matchHTML(m)).join("")}</div>
     </div>
     <div class="bSide right">
-      ${col("SF · GW29",sfR,true,true)}
-      ${col("QF · GW24",qfR,true,true)}
-      ${col("R16 · GW15",r16R,r1Locked,r16Locked)}
+      ${col("SF · GW29",sfR,true,true,true)}
+      ${col("QF · GW24",qfR,true,true,true)}
+      ${col("R16 · GW15",r16R,r1Locked,r16Locked,true)}
     </div>`;
   })()}
   </div></div>`;
