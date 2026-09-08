@@ -84,6 +84,7 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 <h1>Supreme FPL Hub</h1>
 <p>Player Investment Board · H2H Analyst · Supreme Carabao Cup · Live backend edition. The Carabao Cup is separate from the Supreme Cup and uses normal FPL points from the relevant gameweek to decide each tie.</p>
 <div id="live" class="live"><span class="dot"></span>Starting app…</div>
+<div id="deadline" class="live" style="margin-top:6px"></div>
 </header>
 <nav class="nav">
 <button data-tab="board" class="active">Player Board</button>
@@ -196,6 +197,41 @@ async function getJSON(url,options={}){
   }finally{clearTimeout(tm)}
 }
 function currentGW(){return BS?.events?.find(e=>e.is_current)?.id||Math.max((BS?.events?.find(e=>e.is_next)?.id||2)-1,1)}
+/* Deadline countdown — ticks every second off the next unfired deadline in
+   BS.events, so it stays accurate between the periodic data refreshes below
+   without needing its own network call. */
+function nextDeadlineEvent(){
+  if(!BS?.events)return null;
+  const now=Date.now();
+  return BS.events.find(e=>e.deadline_time&&new Date(e.deadline_time).getTime()>now)||null;
+}
+function fmtCountdown(ms){
+  if(ms<=0)return "deadline passed";
+  const s=Math.floor(ms/1000),d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),sec=s%60;
+  if(d>0)return `${d}d ${h}h ${m}m`;
+  if(h>0)return `${h}h ${m}m`;
+  if(m>0)return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+function updateDeadlineDisplay(){
+  const el=$("deadline");if(!el)return;
+  const ev=nextDeadlineEvent();
+  if(!ev){el.innerHTML="";return}
+  const ms=new Date(ev.deadline_time).getTime()-Date.now();
+  const when=new Date(ev.deadline_time).toLocaleString([],{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  el.innerHTML=`<span class="dot"></span>${esc(ev.name||`GW${ev.id}`)} deadline in ${fmtCountdown(ms)} · ${esc(when)}`;
+}
+setInterval(updateDeadlineDisplay,1000);
+/* Auto-refresh — the page used to fetch bootstrap/fixtures once on load and
+   then go stale for as long as it stayed open. Re-pull every 5 minutes, and
+   also immediately on returning to the tab if a refresh window was missed
+   while it was in the background (throttled/paused timers). */
+const REFRESH_MS=5*60*1000;
+let lastLoadTime=0;
+setInterval(()=>{ if(BS) loadBase(); },REFRESH_MS);
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&BS&&Date.now()-lastLoadTime>REFRESH_MS) loadBase();
+});
 /* Builds, per team, a chronological list of every scheduled fixture with
    opponent id, venue and difficulty. Powers both the Next Opponent chip and
    the weighted fixture-run scoring below. Naturally reflects blank and
@@ -455,17 +491,19 @@ function renderInjuryDigest(){
   }).join("");
 }
 async function loadBase(){
-  setLive("Connecting to Supreme FPL backend…");
+  const isRefresh=!!BS; // background refresh vs first load — keep the UI calmer on repeats
+  setLive(isRefresh?"Refreshing live FPL data…":"Connecting to Supreme FPL backend…");
   try{
     [BS,FIX]=await Promise.all([getJSON(API+"/bootstrap"),getJSON(API+"/fixtures")]);
     TEAMS=Object.fromEntries(BS.teams.map(t=>[t.id,t]));ELEMENTS_BY_ID=Object.fromEntries(BS.elements.map(e=>[e.id,e]));GW=currentGW();FXIDX=buildFixtureIndex();FORMIDX=buildTeamFormDifficulty();
     ROWS=BS.elements.filter(p=>POS[p.element_type]).map(p=>score(p,FXIDX,GW+1,nGws,FORMIDX));
     $("boardNotice").textContent=`Live data loaded through the backend · Current GW${GW}; investment scoring looks ahead from GW${GW+1}.`;
-    setLive("Live FPL data loaded · "+new Date().toLocaleTimeString());renderPlayers();autoRestoreCup();
+    lastLoadTime=Date.now();
+    setLive("Live FPL data loaded · "+new Date().toLocaleTimeString());updateDeadlineDisplay();renderPlayers();autoRestoreCup();
     renderCaptaincy();renderDifferentials();renderPriceWatch();renderInjuryDigest();
   }catch(e){
     setLive("Backend/API connection failed",true);
-    $("boardNotice").innerHTML=`<span class="error">${esc(e.message)}</span><br>Make sure this app is running from its Node server, not as a downloaded HTML file.`;
+    if(!isRefresh)$("boardNotice").innerHTML=`<span class="error">${esc(e.message)}</span><br>Make sure this app is running from its Node server, not as a downloaded HTML file.`;
   }
 }
 $("ngw").oninput=e=>{nGws=+e.target.value;$("ngwLabel").textContent=nGws;if(BS){ROWS=BS.elements.filter(p=>POS[p.element_type]).map(p=>score(p,FXIDX,GW+1,nGws,FORMIDX));renderPlayers()}};
@@ -791,7 +829,7 @@ function renderCup(){
   const status=`Current GW${GW}. Results are shown only when the required gameweek has data.`;
   const r1Locked=GW>=CUP.rules.r1, r16Locked=GW>=CUP.rules.r16;
   el.innerHTML=`<div class="grid g4"><div class="stat"><small>Round 1</small><b>GW9</b><small>Seeds 13–20</small></div><div class="stat"><small>Round of 16</small><b>GW15</b><small>8 + 8</small></div><div class="stat"><small>Quarterfinal</small><b>GW24</b></div><div class="stat"><small>Final</small><b>GW35</b><small>🏆</small></div></div>
-  <div class="notice" style="margin:14px 0"><b>Rule:</b> cup winners are determined by normal FPL points from the specified gameweek, not H2H league points. Round 1 and Round of 16 are drawn together the moment table positions lock at the end of GW8 — a genuine random draw across Seed 1 through Seed 20 (the number is just table position, not bracket seeding), split into a left half and a right half that stay separate all the way to the Final. Boxes show only a seed number until GW9, when Round 1 is decided and every Round of 16 identity is known — an undecided Round 1 tie shows both possible seeds (e.g. "Seed 17/Seed 20") until then. Round of 16 names appear from GW9, but scores and winners for that round still only appear once it's actually played at GW15. Later rounds (QF onward) are only drawn once their predecessor round fully completes. ${esc(status)}</div>
+  <div class="notice" style="margin:14px 0"><b>Rule:</b> ties are decided by normal FPL points in the listed gameweek, not H2H points. Round 1 and Round of 16 are drawn together once table positions lock after GW8; each round's matchups and results appear as soon as they're known. ${esc(status)}</div>
   ${CUP.champion?`<div class="champ"><div class="trophy">🏆</div><h2>${esc(CUP.champion.name)}</h2><div class="muted">Champion · GW35</div></div>`:""}
   <div class="r1standalone">
     <div class="roundTitle">Round 1 · GW9 (seeds 13–20, feeds the Round of 16 below)</div>
