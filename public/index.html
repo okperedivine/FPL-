@@ -558,9 +558,21 @@ async function fixtureOutlook(){
 }
 
 const CUP_RULES={r1:9,r16:15,qf:24,sf:29,final:35};
+// Bumped whenever the shape of the saved CUP object changes (e.g. adding
+// the ball-draw/ref structure). A saved draw from an older schema version
+// is structurally incompatible — loading it as-is produces exactly the
+// blank/stale boxes this was built to prevent — so it's discarded and a
+// fresh draw is made instead, rather than silently rendering broken data.
+const CUP_SCHEMA_VERSION=2;
 function stateKey(){return "supreme_carabao_"+($("leagueId").value.trim()||"unknown")}
 function saveCup(){localStorage.setItem(stateKey(),JSON.stringify(CUP))}
-function loadSaved(){try{return JSON.parse(localStorage.getItem(stateKey())||"null")}catch{return null}}
+function loadSaved(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(stateKey())||"null");
+    if(saved&&saved.schemaVersion!==CUP_SCHEMA_VERSION)return null;
+    return saved;
+  }catch{return null}
+}
 function pairR1(a){return [[a[0],a[7]],[a[1],a[6]],[a[2],a[5]],[a[3],a[4]]]}
 // True random draw (Fisher–Yates), not a seeded bracket position. Called
 // once at draw time and the resulting order is persisted in CUP state, so
@@ -605,7 +617,7 @@ function initialCup(){
   // slots several rounds out.
   const r1Refs=r1.map((m,i)=>({isRef:true,matchIndex:i,seedA:m.a.seed,seedB:m.b.seed}));
   const r16=shuffleDraw([...top12,...r1Refs]).map(([a,b])=>makeMatch(a,b,15));
-  return {rules:CUP_RULES,seeds,top12,r1,r16,qf:null,sf:null,final:null,champion:null};
+  return {rules:CUP_RULES,seeds,top12,r1,r16,qf:null,sf:null,final:null,champion:null,schemaVersion:CUP_SCHEMA_VERSION};
 }
 // Once an R1 tie completes, replace its placeholder ref in the R16 bracket
 // with the actual winning team object — the box will still only show that
