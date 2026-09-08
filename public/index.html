@@ -16,7 +16,31 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 .notice{padding:12px;border:1px solid var(--line);background:#0b1911;border-radius:10px;color:#b9cbbf;font-size:13px;line-height:1.5}.stat{border:1px solid var(--line);border-radius:12px;padding:15px;background:#ffffff04}.stat small{color:var(--muted)}.stat b{display:block;font-size:26px;margin-top:4px}
 .fxrow{display:flex;gap:4px;flex-wrap:wrap;max-width:220px}.fx{font-size:10px;font-weight:800;padding:3px 6px;border-radius:6px;color:#06100b;white-space:nowrap}.fx1,.fx2{background:var(--g)}.fx3{background:var(--gold)}.fx4,.fx5{background:var(--red)}.fx-blank{background:#3a4a41;color:#cfe3d7}
 .chat{height:420px;overflow:auto;display:flex;flex-direction:column;gap:9px}.bubble{padding:11px 13px;border-radius:13px;white-space:pre-wrap;line-height:1.45;max-width:92%}.bot{background:#10271c;border:1px solid var(--line)}.user{background:#198a51;align-self:flex-end}.quick{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.quick button{border:1px solid var(--line);background:#08130d;color:#bdd0c2;border-radius:999px;padding:7px 10px;font-size:11px}.chatbar{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:10px}
-.bracket{overflow:auto}.bracketGrid{display:grid;grid-template-columns:repeat(4,240px);gap:18px;min-width:1000px}.roundTitle{text-align:center;color:var(--gold);font-size:11px;font-weight:900;text-transform:uppercase;margin-bottom:10px}.match{background:#07120c;border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-bottom:18px}.row{display:flex;justify-content:space-between;padding:9px;border-bottom:1px solid #234a3366;font-size:12px}.row:last-child{border:0}.win{background:#35d07f16;color:#dff9e9;font-weight:900}.round1 .match:nth-child(2){margin-top:18px}.round1 .match:nth-child(3){margin-top:36px}.round1 .match:nth-child(4){margin-top:54px}.r16 .match:nth-child(2){margin-top:65px}.r16 .match:nth-child(3){margin-top:65px}.r16 .match:nth-child(4){margin-top:65px}.qf .match:nth-child(2){margin-top:160px}.sf .match{margin-top:160px}.champ{text-align:center;border:1px solid #a98128;background:#211b0b;border-radius:15px;padding:20px}.trophy{font-size:42px}
+.bracket{overflow:auto}
+.roundTitle{text-align:center;color:var(--gold);font-size:11px;font-weight:900;text-transform:uppercase;margin-bottom:10px}
+.match{background:#07120c;border:1px solid var(--line);border-radius:11px;overflow:hidden}
+.row{display:flex;justify-content:space-between;padding:9px;border-bottom:1px solid #234a3366;font-size:12px}
+.row:last-child{border:0}
+.win{background:#35d07f16;color:#dff9e9;font-weight:900}
+.champ{text-align:center;border:1px solid #a98128;background:#211b0b;border-radius:15px;padding:20px}
+.trophy{font-size:42px}
+/* Round 1 sits on its own, above the two-sided bracket — it's the bottom-8
+   play-in, not one of the two halves. Its undecided ties can still appear
+   as "Ball X or Ball Y" refs inside the R16 columns below (see matchHTML). */
+.r1standalone{margin-bottom:26px}
+.r1grid{display:grid;grid-template-columns:repeat(4,220px);gap:16px}
+/* Two-sided bracket: left half (R16→QF→SF) and right half (mirrored,
+   SF→QF→R16) converge on a centered Final. Each column is a flex track;
+   giving every column in a side the same fixed height and using
+   justify-content:space-around lets fewer matches (QF, SF) automatically
+   center themselves between the pair that feeds them, without hand-tuned
+   margins per round. */
+.bracket2{display:flex;gap:18px;min-width:1520px;align-items:center}
+.bSide{display:flex;gap:18px}
+.bColWrap{display:flex;flex-direction:column}
+.bCol{display:flex;flex-direction:column;justify-content:space-around;width:210px;height:540px}
+.bFinalWrap{display:flex;flex-direction:column;align-items:center;gap:14px}
+.bFinalCol{display:flex;flex-direction:column;justify-content:center;width:210px;height:540px}
 .error{color:#ffad9d}.loading{color:#bdd1c4}.hidden{display:none}
 </style>
 </head>
@@ -563,7 +587,7 @@ const CUP_RULES={r1:9,r16:15,qf:24,sf:29,final:35};
 // is structurally incompatible — loading it as-is produces exactly the
 // blank/stale boxes this was built to prevent — so it's discarded and a
 // fresh draw is made instead, rather than silently rendering broken data.
-const CUP_SCHEMA_VERSION=2;
+const CUP_SCHEMA_VERSION=3;
 function stateKey(){return "supreme_carabao_"+($("leagueId").value.trim()||"unknown")}
 function saveCup(){localStorage.setItem(stateKey(),JSON.stringify(CUP))}
 function loadSaved(){
@@ -616,7 +640,22 @@ function initialCup(){
   // fully complete, so the bracket doesn't get cluttered with speculative
   // slots several rounds out.
   const r1Refs=r1.map((m,i)=>({isRef:true,matchIndex:i,seedA:m.a.seed,seedB:m.b.seed}));
-  const r16=shuffleDraw([...top12,...r1Refs]).map(([a,b])=>makeMatch(a,b,15));
+  // Two-sided bracket: the top-12 byes and the 4 R1 refs are split into a
+  // left pool and a right pool (6 byes + 2 refs each) and each side is
+  // drawn independently, rather than one flat 16-team shuffle sliced in
+  // half afterwards. This guarantees each side is a genuinely separate
+  // 8-team draw, not just an arbitrary slice of one shared shuffle.
+  // CUP.r16 stays a flat 8-match array — matches 0-3 are the left side,
+  // 4-7 are the right side — so the existing QF/SF/Final pairing logic
+  // (which already advances winners in adjacent pairs) naturally keeps
+  // each side self-contained all the way to the Final.
+  const shuffledTop=shuffleArr(top12);
+  const leftTop=shuffledTop.slice(0,6), rightTop=shuffledTop.slice(6,12);
+  const shuffledRefs=shuffleArr(r1Refs);
+  const leftRefs=shuffledRefs.slice(0,2), rightRefs=shuffledRefs.slice(2,4);
+  const r16Left=shuffleDraw([...leftTop,...leftRefs]).map(([a,b])=>makeMatch(a,b,15));
+  const r16Right=shuffleDraw([...rightTop,...rightRefs]).map(([a,b])=>makeMatch(a,b,15));
+  const r16=[...r16Left,...r16Right];
   return {rules:CUP_RULES,seeds,top12,r1,r16,qf:null,sf:null,final:null,champion:null,schemaVersion:CUP_SCHEMA_VERSION};
 }
 // Once an R1 tie completes, replace its placeholder ref in the R16 bracket
@@ -678,15 +717,21 @@ async function createCup(){
   botSay("🏆 Round 1 locked: 13th vs 20th, 14th vs 19th, 15th vs 18th, 16th vs 17th. The tie winner is decided by normal FPL points in GW9.");
   await advanceCup();
 }
-function matchHTML(m,locked=true){
+// namesLocked controls whether a team's identity is revealed (e.g. GW9,
+// once Round 1 decides who fills every R16 slot); resultLocked controls
+// whether the score/winner highlight shows (only once that tie is actually
+// played — GW15 for R16, even though the names were known since GW9).
+// resultLocked defaults to namesLocked so R1/QF/SF/Final — where both
+// happen at the same gameweek — can still call this with one flag.
+function matchHTML(m,namesLocked=true,resultLocked=namesLocked){
   if(!m)return'<div class="match"><div class="row">TBD</div><div class="row">TBD</div></div>';
   const label=x=>{
     if(!x)return"TBD";
     if(x.isRef)return`Ball ${x.seedA} or Ball ${x.seedB}`; // tie not yet decided
-    return locked?x.name:`Ball ${x.seed}`;
+    return namesLocked?x.name:`Ball ${x.seed}`;
   };
-  const scoreOf=(x,s)=>(!x||x.isRef)?"—":(locked?(s??"—"):"");
-  return`<div class="match"><div class="row ${locked&&m.win==="a"?"win":""}"><span>${esc(label(m.a))}</span><b>${scoreOf(m.a,m.as)}</b></div><div class="row ${locked&&m.win==="b"?"win":""}"><span>${esc(label(m.b))}</span><b>${scoreOf(m.b,m.bs)}</b></div></div>`;
+  const scoreOf=(x,s)=>(!x||x.isRef)?"—":(resultLocked?(s??"—"):"");
+  return`<div class="match"><div class="row ${resultLocked&&m.win==="a"?"win":""}"><span>${esc(label(m.a))}</span><b>${scoreOf(m.a,m.as)}</b></div><div class="row ${resultLocked&&m.win==="b"?"win":""}"><span>${esc(label(m.b))}</span><b>${scoreOf(m.b,m.bs)}</b></div></div>`;
 }
 function renderCup(){
   const el=$("cupContent");
@@ -695,13 +740,37 @@ function renderCup(){
   const status=`Current GW${GW}. Results are shown only when the required gameweek has data.`;
   const r1Locked=GW>=CUP.rules.r1, r16Locked=GW>=CUP.rules.r16;
   el.innerHTML=`<div class="grid g4"><div class="stat"><small>Round 1</small><b>GW9</b><small>Seeds 13–20</small></div><div class="stat"><small>Round of 16</small><b>GW15</b><small>8 + 8</small></div><div class="stat"><small>Quarterfinal</small><b>GW24</b></div><div class="stat"><small>Final</small><b>GW35</b><small>🏆</small></div></div>
-  <div class="notice" style="margin:14px 0"><b>Rule:</b> cup winners are determined by normal FPL points from the specified gameweek, not H2H league points. Round 1 and Round of 16 are drawn together the moment table positions lock at the end of GW8 — a genuine random draw (Ball 1 through Ball 20), not seeded by rank. Boxes show only a ball number until that round's own gameweek reveals real names — Round of 16 balls tied to an undecided Round 1 match show both possible balls (e.g. "Ball 17 or Ball 20") until that tie is settled. Later rounds (QF onward) are only drawn once their predecessor round fully completes. ${esc(status)}</div>
+  <div class="notice" style="margin:14px 0"><b>Rule:</b> cup winners are determined by normal FPL points from the specified gameweek, not H2H league points. Round 1 and Round of 16 are drawn together the moment table positions lock at the end of GW8 — a genuine random draw (Ball 1 through Ball 20), not seeded by rank, split into a left half and a right half that stay separate all the way to the Final. Boxes show only a ball number until GW9, when Round 1 is decided and every Round of 16 identity is known — an undecided Round 1 tie shows both possible balls (e.g. "Ball 17 or Ball 20") until then. Round of 16 names appear from GW9, but scores and winners for that round still only appear once it's actually played at GW15. Later rounds (QF onward) are only drawn once their predecessor round fully completes. ${esc(status)}</div>
   ${CUP.champion?`<div class="champ"><div class="trophy">🏆</div><h2>${esc(CUP.champion.name)}</h2><div class="muted">Champion · GW35</div></div>`:""}
-  <div class="bracket" style="margin-top:15px"><div class="bracketGrid">
-  <div class="round1"><div class="roundTitle">Round 1 · GW9</div>${(CUP.r1||[]).map(m=>matchHTML(m,r1Locked)).join("")}</div>
-  <div class="r16"><div class="roundTitle">Round of 16 · GW15</div>${(CUP.r16||[]).map(m=>matchHTML(m,r16Locked)).join("")}</div>
-  <div class="qf"><div class="roundTitle">Quarterfinal · GW24</div>${(CUP.qf||[]).map(m=>matchHTML(m)).join("")}</div>
-  <div class="sf"><div class="roundTitle">Semifinal · GW29</div>${(CUP.sf||[]).map(m=>matchHTML(m)).join("")}<div class="roundTitle" style="margin-top:40px">Final · GW35</div>${(CUP.final||[]).map(m=>matchHTML(m)).join("")}</div>
+  <div class="r1standalone">
+    <div class="roundTitle">Round 1 · GW9 (seeds 13–20, feeds the Round of 16 below)</div>
+    <div class="r1grid">${(CUP.r1||[]).map(m=>matchHTML(m,r1Locked)).join("")}</div>
+  </div>
+  <div class="bracket"><div class="bracket2">
+  ${(()=>{
+    const r16=CUP.r16||[],qf=CUP.qf||[],sf=CUP.sf||[];
+    const r16L=r16.slice(0,4),r16R=r16.slice(4,8);
+    const qfL=qf.slice(0,2),qfR=qf.slice(2,4);
+    const sfL=sf.slice(0,1),sfR=sf.slice(1,2);
+    // R16 names reveal once Round 1 is decided (GW9) — every R16 slot is
+    // known by then, byes included — but the score/win only appears once
+    // that tie is actually played at GW15.
+    const col=(title,matches,namesLocked,resultLocked)=>`<div class="bColWrap"><div class="roundTitle">${title}</div><div class="bCol">${matches.map(m=>matchHTML(m,namesLocked,resultLocked)).join("")}</div></div>`;
+    return `<div class="bSide left">
+      ${col("R16 · GW15",r16L,r1Locked,r16Locked)}
+      ${col("QF · GW24",qfL,true,true)}
+      ${col("SF · GW29",sfL,true,true)}
+    </div>
+    <div class="bFinalWrap">
+      <div class="roundTitle">Final · GW35</div>
+      <div class="bFinalCol">${(CUP.final||[]).map(m=>matchHTML(m)).join("")}</div>
+    </div>
+    <div class="bSide right">
+      ${col("SF · GW29",sfR,true,true)}
+      ${col("QF · GW24",qfR,true,true)}
+      ${col("R16 · GW15",r16R,r1Locked,r16Locked)}
+    </div>`;
+  })()}
   </div></div>`;
 }
 async function autoRestoreCup(){if(!STANDINGS.length)return;CUP=loadSaved();if(CUP){await advanceCup()}else renderCup()}
