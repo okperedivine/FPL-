@@ -562,6 +562,27 @@ function stateKey(){return "supreme_carabao_"+($("leagueId").value.trim()||"unkn
 function saveCup(){localStorage.setItem(stateKey(),JSON.stringify(CUP))}
 function loadSaved(){try{return JSON.parse(localStorage.getItem(stateKey())||"null")}catch{return null}}
 function pairR1(a){return [[a[0],a[7]],[a[1],a[6]],[a[2],a[5]],[a[3],a[4]]]}
+// True random draw (Fisher–Yates), not a seeded bracket position. Called
+// once at draw time and the resulting order is persisted in CUP state, so
+// it doesn't reshuffle on every reload — a draw only happens once.
+function shuffleArr(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+// Randomly draws the field into pairs — a genuine draw, not a seed-based
+// bracket. Order of the array itself doesn't matter for display (each
+// team's own table position/seed is what gets shown, see matchHTML), this
+// just decides *who plays whom*.
+function shuffleDraw(arr){
+  const drawn=shuffleArr(arr);
+  const pairs=[];
+  for(let i=0;i<drawn.length;i+=2)pairs.push([drawn[i],drawn[i+1]]);
+  return pairs;
+}
 function makeMatch(a,b,round){return {a,b,round,status:"pending",as:null,bs:null,win:null}}
 function teamByEntry(id){return STANDINGS.find(t=>String(t.entry)===String(id))}
 function lockedSeedTable(){
@@ -572,8 +593,31 @@ function initialCup(){
   const seeds=lockedSeedTable();
   if(seeds.length<20)throw Error("The Carabao Cup requires a 20-team H2H league.");
   const bottom=seeds.slice(12,20), top12=seeds.slice(0,12);
-  const r1=pairR1(bottom).map(([a,b])=>makeMatch(a,b,9));
-  return {rules:CUP_RULES,seeds,top12,r1,r16:null,qf:null,sf:null,final:null,champion:null};
+  const r1=shuffleDraw(bottom).map(([a,b])=>makeMatch(a,b,9));
+  // The Round of 16 draw happens the same moment as Round 1 — a real cup
+  // draws the whole bracket on paper before any ties are played. Its 4
+  // "unknown" slots aren't blank: they're a specific R1 tie, shown as both
+  // feeder positions (e.g. "Position 17/Position 20") until that tie is
+  // decided, at which point the slot collapses to the single winning
+  // position (see materializeR16Refs). We deliberately stop the lookahead
+  // there — QF/SF/Final are only drawn once their own predecessor round is
+  // fully complete, so the bracket doesn't get cluttered with speculative
+  // slots several rounds out.
+  const r1Refs=r1.map((m,i)=>({isRef:true,matchIndex:i,seedA:m.a.seed,seedB:m.b.seed}));
+  const r16=shuffleDraw([...top12,...r1Refs]).map(([a,b])=>makeMatch(a,b,15));
+  return {rules:CUP_RULES,seeds,top12,r1,r16,qf:null,sf:null,final:null,champion:null};
+}
+// Once an R1 tie completes, replace its placeholder ref in the R16 bracket
+// with the actual winning team object — the box will still only show that
+// team's position number (not name) until R16's own GW15 lock, via the
+// normal matchHTML reveal logic.
+function materializeR16Refs(){
+  if(!CUP.r16)return;
+  CUP.r16=CUP.r16.map(m=>({
+    ...m,
+    a:m.a?.isRef?(winner(CUP.r1[m.a.matchIndex])||m.a):m.a,
+    b:m.b?.isRef?(winner(CUP.r1[m.b.matchIndex])||m.b):m.b,
+  }));
 }
 async function resolveMatches(matches,gw){
   if(!matches?.length)return [];
@@ -593,17 +637,7 @@ async function advanceCup(){
   if(!CUP) CUP=initialCup();
   const now=GW;
   if(now>=9 && CUP.r1.some(m=>m.status!=="complete")) CUP.r1=await resolveMatches(CUP.r1,9);
-  if(!CUP.r16 && CUP.r1.every(m=>m.status==="complete")){
-    const winners=CUP.r1.map(winner), top=CUP.top12;
-    // Deterministic 16-team bracket: top 4 face the four R1 winners;
-    // seeds 5–12 face each other in seed order.
-    CUP.r16=[
-      makeMatch(top[0],winners[0],15),makeMatch(top[1],winners[1],15),
-      makeMatch(top[2],winners[2],15),makeMatch(top[3],winners[3],15),
-      makeMatch(top[4],top[11],15),makeMatch(top[5],top[10],15),
-      makeMatch(top[6],top[9],15),makeMatch(top[7],top[8],15)
-    ];
-  }
+  materializeR16Refs();
   if(CUP.r16 && now>=15) CUP.r16=await resolveMatches(CUP.r16,15);
   if(!CUP.qf && CUP.r16?.every(m=>m.status==="complete")){
     const w=CUP.r16.map(winner);
@@ -632,24 +666,30 @@ async function createCup(){
   botSay("🏆 Round 1 locked: 13th vs 20th, 14th vs 19th, 15th vs 18th, 16th vs 17th. The tie winner is decided by normal FPL points in GW9.");
   await advanceCup();
 }
-function matchHTML(m){
+function matchHTML(m,locked=true){
   if(!m)return'<div class="match"><div class="row">TBD</div><div class="row">TBD</div></div>';
-  const label=x=>x?.name||"TBD";
-  return`<div class="match"><div class="row ${m.win==="a"?"win":""}"><span>${esc(label(m.a))}</span><b>${m.as??"—"}</b></div><div class="row ${m.win==="b"?"win":""}"><span>${esc(label(m.b))}</span><b>${m.bs??"—"}</b></div></div>`;
+  const label=x=>{
+    if(!x)return"TBD";
+    if(x.isRef)return`Ball ${x.seedA} or Ball ${x.seedB}`; // tie not yet decided
+    return locked?x.name:`Ball ${x.seed}`;
+  };
+  const scoreOf=(x,s)=>(!x||x.isRef)?"—":(locked?(s??"—"):"");
+  return`<div class="match"><div class="row ${locked&&m.win==="a"?"win":""}"><span>${esc(label(m.a))}</span><b>${scoreOf(m.a,m.as)}</b></div><div class="row ${locked&&m.win==="b"?"win":""}"><span>${esc(label(m.b))}</span><b>${scoreOf(m.b,m.bs)}</b></div></div>`;
 }
 function renderCup(){
   const el=$("cupContent");
   if(!STANDINGS.length){el.innerHTML="<h2>🏆 Supreme Carabao Cup</h2><p class='muted'>Load your H2H league first.</p>";return}
   if(!CUP){el.innerHTML="<div class='trophy'>🏆</div><h2>Supreme Carabao Cup</h2><p class='muted'>Round 1 uses H2H positions after GW8; later rounds use the locked bracket.</p><button class='btn gold' id='makeCup'>Create Competition</button>";$("makeCup").onclick=createCup;return}
   const status=`Current GW${GW}. Results are shown only when the required gameweek has data.`;
+  const r1Locked=GW>=CUP.rules.r1, r16Locked=GW>=CUP.rules.r16;
   el.innerHTML=`<div class="grid g4"><div class="stat"><small>Round 1</small><b>GW9</b><small>Seeds 13–20</small></div><div class="stat"><small>Round of 16</small><b>GW15</b><small>8 + 8</small></div><div class="stat"><small>Quarterfinal</small><b>GW24</b></div><div class="stat"><small>Final</small><b>GW35</b><small>🏆</small></div></div>
-  <div class="notice" style="margin:14px 0"><b>Rule:</b> cup winners are determined by normal FPL points from the specified gameweek, not H2H league points. A draw uses the better locked pre-round seed as tiebreaker. ${esc(status)}</div>
+  <div class="notice" style="margin:14px 0"><b>Rule:</b> cup winners are determined by normal FPL points from the specified gameweek, not H2H league points. Round 1 and Round of 16 are drawn together the moment table positions lock at the end of GW8 — a genuine random draw (Ball 1 through Ball 20), not seeded by rank. Boxes show only a ball number until that round's own gameweek reveals real names — Round of 16 balls tied to an undecided Round 1 match show both possible balls (e.g. "Ball 17 or Ball 20") until that tie is settled. Later rounds (QF onward) are only drawn once their predecessor round fully completes. ${esc(status)}</div>
   ${CUP.champion?`<div class="champ"><div class="trophy">🏆</div><h2>${esc(CUP.champion.name)}</h2><div class="muted">Champion · GW35</div></div>`:""}
   <div class="bracket" style="margin-top:15px"><div class="bracketGrid">
-  <div class="round1"><div class="roundTitle">Round 1 · GW9</div>${(CUP.r1||[]).map(matchHTML).join("")}</div>
-  <div class="r16"><div class="roundTitle">Round of 16 · GW15</div>${(CUP.r16||[]).map(matchHTML).join("")}</div>
-  <div class="qf"><div class="roundTitle">Quarterfinal · GW24</div>${(CUP.qf||[]).map(matchHTML).join("")}</div>
-  <div class="sf"><div class="roundTitle">Semifinal · GW29</div>${(CUP.sf||[]).map(matchHTML).join("")}<div class="roundTitle" style="margin-top:40px">Final · GW35</div>${(CUP.final||[]).map(matchHTML).join("")}</div>
+  <div class="round1"><div class="roundTitle">Round 1 · GW9</div>${(CUP.r1||[]).map(m=>matchHTML(m,r1Locked)).join("")}</div>
+  <div class="r16"><div class="roundTitle">Round of 16 · GW15</div>${(CUP.r16||[]).map(m=>matchHTML(m,r16Locked)).join("")}</div>
+  <div class="qf"><div class="roundTitle">Quarterfinal · GW24</div>${(CUP.qf||[]).map(m=>matchHTML(m)).join("")}</div>
+  <div class="sf"><div class="roundTitle">Semifinal · GW29</div>${(CUP.sf||[]).map(m=>matchHTML(m)).join("")}<div class="roundTitle" style="margin-top:40px">Final · GW35</div>${(CUP.final||[]).map(m=>matchHTML(m)).join("")}</div>
   </div></div>`;
 }
 async function autoRestoreCup(){if(!STANDINGS.length)return;CUP=loadSaved();if(CUP){await advanceCup()}else renderCup()}
