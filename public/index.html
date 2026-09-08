@@ -86,6 +86,8 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 <p>Player Investment Board · H2H Analyst · Supreme Carabao Cup · Live backend edition. The Carabao Cup is separate from the Supreme Cup and uses normal FPL points from the relevant gameweek to decide each tie.</p>
 <div id="live" class="live"><span class="dot"></span>Starting app…</div>
 <div id="deadline" class="live" style="margin-top:6px"></div>
+<button id="remindBtn" class="btn" style="margin-top:10px">🔔 Remind me 2h before each deadline</button>
+<div id="remindStatus" class="muted" style="font-size:11px;margin-top:6px"></div>
 </header>
 <nav class="nav">
 <button data-tab="board" class="active">Player Board</button>
@@ -253,6 +255,50 @@ function updateDeadlineDisplay(){
   el.innerHTML=`<span class="dot"></span>${esc(ev.name||`GW${ev.id}`)} deadline in ${fmtCountdown(ms)} · ${esc(when)}`;
 }
 setInterval(updateDeadlineDisplay,1000);
+
+/* Deadline reminders — a real browser Notification fired 2h before whatever
+   the *current* next gameweek deadline is, recomputed every time BS.events
+   refreshes. Unlike a phone alarm set once for "next Saturday", this always
+   tracks the actual next deadline (different day/time every gameweek)
+   without needing to be re-armed by hand.
+   Limitation, stated plainly: this only fires while the tab/app is open (or
+   open in the background) — a static site with no push server can't wake a
+   fully closed browser the way a native app notification can. */
+const REMIND_KEY="supreme_deadline_reminders", REMIND_FIRED_KEY="supreme_last_reminder_event";
+function remindersEnabled(){return localStorage.getItem(REMIND_KEY)==="1"}
+function setRemindersEnabled(on){localStorage.setItem(REMIND_KEY,on?"1":"0")}
+function renderRemindBtn(){
+  const supported=typeof Notification!=="undefined";
+  const btn=$("remindBtn"),status=$("remindStatus");
+  if(!supported){btn.style.display="none";status.textContent="Notifications aren't supported in this browser.";return}
+  const on=remindersEnabled()&&Notification.permission==="granted";
+  btn.textContent=on?"🔔 Deadline reminders ON":"🔕 Remind me 2h before each deadline";
+  if(Notification.permission==="denied"){status.textContent="Notifications are blocked for this site in your browser settings — allow them to use this.";}
+  else if(on){const ev=nextDeadlineEvent();status.textContent=ev?`You'll get a notification ~2h before ${esc(ev.name||"GW"+ev.id)} locks. Keep this tab open (or in a background tab) for it to fire.`:"Armed — waiting on the next gameweek deadline to appear.";}
+  else{status.textContent="Off. Turning this on asks your browser for notification permission once.";}
+}
+$("remindBtn").onclick=async()=>{
+  if(typeof Notification==="undefined")return;
+  if(remindersEnabled()&&Notification.permission==="granted"){setRemindersEnabled(false);renderRemindBtn();return}
+  if(Notification.permission==="denied"){renderRemindBtn();return}
+  const perm=Notification.permission==="granted"?"granted":await Notification.requestPermission();
+  if(perm==="granted"){setRemindersEnabled(true);new Notification("Deadline reminders on",{body:"You'll get a heads-up 2 hours before each FPL gameweek deadline while this tab's open."})}
+  renderRemindBtn();
+};
+function checkDeadlineReminder(){
+  if(!remindersEnabled()||typeof Notification==="undefined"||Notification.permission!=="granted")return;
+  const ev=nextDeadlineEvent();if(!ev)return;
+  const deadline=new Date(ev.deadline_time).getTime(),now=Date.now();
+  const reminderAt=deadline-2*60*60*1000;
+  const lastFired=localStorage.getItem(REMIND_FIRED_KEY);
+  if(now>=reminderAt&&now<deadline&&String(lastFired)!==String(ev.id)){
+    const when=new Date(ev.deadline_time).toLocaleString([],{weekday:"short",hour:"2-digit",minute:"2-digit"});
+    new Notification(`⏰ ${ev.name||"GW"+ev.id} deadline in ~2 hours`,{body:`Locks ${when} — get your transfers/captain sorted.`});
+    localStorage.setItem(REMIND_FIRED_KEY,String(ev.id));
+  }
+}
+renderRemindBtn();
+setInterval(()=>{checkDeadlineReminder();if(BS)renderRemindBtn()},60*1000);
 /* Auto-refresh — the page used to fetch bootstrap/fixtures once on load and
    then go stale for as long as it stayed open. Re-pull every 5 minutes, and
    also immediately on returning to the tab if a refresh window was missed
@@ -588,6 +634,7 @@ async function loadBase(){
     lastLoadTime=Date.now();
     setLive("Live FPL data loaded · "+new Date().toLocaleTimeString());updateDeadlineDisplay();renderPlayers();autoRestoreCup();
     renderCaptaincy();renderDifferentials();renderPriceWatch();renderInjuryDigest();renderTransferPlan();
+    checkDeadlineReminder();renderRemindBtn();
   }catch(e){
     setLive("Backend/API connection failed",true);
     if(!isRefresh)$("boardNotice").innerHTML=`<span class="error">${esc(e.message)}</span><br>Make sure this app is running from its Node server, not as a downloaded HTML file.`;
