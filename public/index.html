@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no">
 <title>Supreme FPL Hub</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 <style>
 *{box-sizing:border-box}html{overflow-x:hidden;max-width:100vw}body{margin:0;background:#06100b;color:#eef7f1;font-family:Inter,Arial,sans-serif;overflow-x:hidden;max-width:100vw;overscroll-behavior-x:none}
 :root{--g:#35d07f;--p:#0d1d15;--p2:#11281c;--line:#234a33;--muted:#9db3a5;--gold:#ffd166;--red:#ff7979}
@@ -154,6 +155,12 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 <div class="chatbar"><input id="query" placeholder="Ask the H2H bot…"><button class="btn primary" id="ask">Ask</button></div>
 </div>
 </div>
+<div class="panel">
+<h2 style="margin-top:0">🃏 Mini-League Chip Tracker</h2>
+<p class="muted" style="margin-top:0">Which chips each manager in your league has already burned this season (Wildcard, Free Hit, Bench Boost, Triple Captain) — straight from FPL's own history for each entry.</p>
+<button class="btn" id="loadChips">Load chip usage</button>
+<div id="chipTracker" class="muted" style="margin-top:10px">Not loaded yet.</div>
+</div>
 </section>
 
 <section id="team" class="tab hidden">
@@ -168,6 +175,22 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 <div id="teamMsg" class="notice" style="margin-top:10px">No team analyzed yet.</div>
 </div>
 <div id="teamResult"></div>
+<div class="grid g2">
+<div class="panel">
+<h2 style="margin-top:0">💸 Transfer Planner</h2>
+<p class="muted" style="margin-top:0">Best-scoring available players within a budget — defaults to your bank balance once a team's analyzed, but you can plan any budget.</p>
+<div class="controls" style="grid-template-columns:1fr 1fr">
+<div><label>Budget: £<span id="planBudgetLabel">5.0</span>m</label><input id="planBudget" type="range" min="3.5" max="15" step=".5" value="5"></div>
+<div><label>Position</label><div class="pills" id="planPos"></div></div>
+</div>
+<div id="transferPlan" class="muted" style="margin-top:10px">Analyze a team, or just move the slider, to see options.</div>
+</div>
+<div class="panel">
+<h2 style="margin-top:0">🃏 Chip Advisor</h2>
+<p class="muted" style="margin-top:0">Best upcoming gameweeks for your chips, based on your squad's actual fixtures over the next 8 gameweeks. Analyze your team first.</p>
+<div id="chipAdvisor" class="muted">Analyze a team above to see chip timing suggestions.</div>
+</div>
+</div>
 </section>
 
 <section id="cup" class="tab hidden">
@@ -181,12 +204,15 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 const API="/api";
 const POS={1:"GKP",2:"DEF",3:"MID",4:"FWD"};
 let BS=null,FIX=null,TEAMS={},ELEMENTS_BY_ID={},GW=1,ROWS=[],LEAGUE=null,STANDINGS=[],MATCHES=[],CUP=null,FORM_CACHE=null;
+let SHARED_VIEW=false; // true when viewing a bracket via a shared link, not the loaded league
 let position="ALL",sortKey="score",nGws=5,budget=20,FXIDX={},FORMIDX={};
 // Populated once a team has been analyzed on the Team Analyzer tab, so the
 // Captaincy and Differentials tabs can say "you already own this" / "you
 // don't own X, consider" instead of staying generic. Cleared implicitly by
 // simply analyzing a different team ID.
 let MY_TEAM_ID=null,MY_OWNED_IDS=new Set();
+let MY_SQUAD=[],MY_BANK=0; // full squad rows + bank, set once a team's been analyzed — feeds the Transfer Planner and Chip Advisor
+let planPosition="ALL";
 
 const $=id=>document.getElementById(id);
 const num=v=>Number.isFinite(parseFloat(v))?parseFloat(v):0;
@@ -345,7 +371,7 @@ function score(p,fxIdx,from,count,formIdx){
     .some(o=>o!=null&&o<=2);
   const valueSeason=num(p.value_season); // FPL's own total-points-per-£m for the whole season
   const dreamteamCount=num(p.dreamteam_count); // times selected in FPL's official Team of the Week
-  return {id:p.id,name:p.web_name,full:`${p.first_name} ${p.second_name}`,team:TEAMS[p.team]?.short_name||"?",pos:POS[p.element_type],
+  return {id:p.id,name:p.web_name,full:`${p.first_name} ${p.second_name}`,team:TEAMS[p.team]?.short_name||"?",teamId:p.team,pos:POS[p.element_type],
     price,form,ep:epNext,lastGW,xgi,lowSample:mins<180,ease,score:s,value:price?s/price:0,chance,rel,next,run:upcoming,
     setPieceDuty,valueSeason,dreamteamCount,totalPoints:num(p.total_points),
 
@@ -462,6 +488,56 @@ function renderDifferentials(){
 }
 $("diffPct").oninput=renderDifferentials;
 
+/* Transfer Planner: same ROWS/score() data as the Player Board, just
+   filtered by a budget (defaults to the analyzed team's bank) and
+   excluding whatever's already owned once a team's been loaded. Works
+   even with no team loaded — it just won't be able to flag ownership. */
+function renderPlanPills(){
+  $("planPos").innerHTML=["ALL","GKP","DEF","MID","FWD"].map(x=>`<button class="pill ${planPosition===x?"active":""}" data-planpos="${x}">${x}</button>`).join("");
+  document.querySelectorAll("[data-planpos]").forEach(b=>b.onclick=()=>{planPosition=b.dataset.planpos;renderPlanPills();renderTransferPlan()});
+}
+function renderTransferPlan(){
+  const budget=+$("planBudget").value;$("planBudgetLabel").textContent=budget.toFixed(1);
+  const list=ROWS.filter(r=>(planPosition==="ALL"||r.pos===planPosition)&&r.price<=budget+0.001&&r.status==="a"&&r.chance>=75&&!MY_OWNED_IDS.has(r.id))
+    .sort((a,b)=>b.score-a.score).slice(0,10);
+  const line=r=>rowLine(`<div><b>${esc(r.name)}</b> <span class="muted">${esc(r.team)} · ${r.pos} · £${r.price.toFixed(1)}m · ${fixtureLabel(r.ease)}</span></div>`,`<div class="score">${r.score.toFixed(1)}</div>`);
+  $("transferPlan").innerHTML=list.length?list.map(line).join(""):`<p class="muted">Nobody within £${budget.toFixed(1)}m clears the availability bar right now — try raising the budget.</p>`;
+}
+$("planBudget").oninput=renderTransferPlan;
+renderPlanPills();
+
+/* Chip Advisor: reuses FXIDX (already built for the Player Board's fixture
+   columns) against the analyzed squad's own team IDs, so "best GW for
+   Free Hit / Bench Boost / Triple Captain" is based on this squad's actual
+   blank/double pattern rather than a generic league-wide one. */
+function renderChipAdvisor(){
+  const el=$("chipAdvisor");
+  if(!MY_SQUAD.length){el.innerHTML='<p class="muted">Analyze a team above to see chip timing suggestions.</p>';return}
+  const LOOKAHEAD=8;
+  const rows=[];
+  for(let g=GW+1; g<GW+1+LOOKAHEAD; g++){
+    let blanks=0,doubles=0;const doubleNames=[];
+    MY_SQUAD.forEach(p=>{
+      const fx=(FXIDX[p.info.teamId]||[]).filter(f=>f.event===g);
+      if(fx.length===0)blanks++;
+      else if(fx.length>=2){doubles++;doubleNames.push(p.info.name)}
+    });
+    rows.push({gw:g,blanks,doubles,doubleNames});
+  }
+  const bestFreeHit=[...rows].sort((a,b)=>b.blanks-a.blanks)[0];
+  const bestBoost=[...rows].sort((a,b)=>b.doubles-a.doubles)[0];
+  const table=rows.map(r=>`<tr><td>GW${r.gw}</td><td>${r.blanks}/${MY_SQUAD.length}</td><td>${r.doubles}/${MY_SQUAD.length}</td></tr>`).join("");
+  const advice=[];
+  if(bestFreeHit.blanks>=3)advice.push(`🆓 <b>Free Hit:</b> GW${bestFreeHit.gw} looks like your best shout — ${bestFreeHit.blanks} of your 15 have no fixture that week.`);
+  else advice.push(`🆓 <b>Free Hit:</b> no gameweek in the next ${LOOKAHEAD} has enough of your squad blanking to clearly justify it yet.`);
+  if(bestBoost.doubles>=3)advice.push(`⚡ <b>Bench Boost / Triple Captain:</b> GW${bestBoost.gw} stands out — ${bestBoost.doubles} of your 15 have a double (${bestBoost.doubleNames.slice(0,4).map(esc).join(", ")}${bestBoost.doubleNames.length>4?"…":""}).`);
+  else advice.push(`⚡ <b>Bench Boost / Triple Captain:</b> no strong double-gameweek stack in your squad in the next ${LOOKAHEAD} gameweeks yet — worth rechecking closer to the time as fixtures get rearranged.`);
+  const avgEase=r=>{const vals=MY_SQUAD.map(p=>p.info.ease).filter(v=>Number.isFinite(v));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0};
+  advice.push(`🃏 <b>Wildcard:</b> your squad's blended fixture ease right now is ${avgEase().toFixed(1)}/5 (Player Board scale) — a wildcard tends to be best timed just before a run of green fixtures, so watch the Player Board's fixture-run column for your weakest-scoring players.`);
+  el.innerHTML=`<div class="tableWrap"><table style="min-width:420px"><thead><tr><th>GW</th><th>Blanking</th><th>Doubling</th></tr></thead><tbody>${table}</tbody></table></div>`
+    +`<div class="notice" style="margin-top:10px;line-height:1.6">${advice.join("<br><br>")}</div>`;
+}
+
 /* Price Change Watch uses FPL's own price_change_projections field (offset 0
    = today) rather than a homemade heuristic — it's their actual pricing
    model output. Skips anything already locked for today or still
@@ -511,7 +587,7 @@ async function loadBase(){
     $("boardNotice").textContent=`Live data loaded through the backend · Current GW${GW}; investment scoring looks ahead from GW${GW+1}.`;
     lastLoadTime=Date.now();
     setLive("Live FPL data loaded · "+new Date().toLocaleTimeString());updateDeadlineDisplay();renderPlayers();autoRestoreCup();
-    renderCaptaincy();renderDifferentials();renderPriceWatch();renderInjuryDigest();
+    renderCaptaincy();renderDifferentials();renderPriceWatch();renderInjuryDigest();renderTransferPlan();
   }catch(e){
     setLive("Backend/API connection failed",true);
     if(!isRefresh)$("boardNotice").innerHTML=`<span class="error">${esc(e.message)}</span><br>Make sure this app is running from its Node server, not as a downloaded HTML file.`;
@@ -546,9 +622,37 @@ async function loadLeague(){
     LEAGUE=await getJSON(API+"/h2h/"+encodeURIComponent(id));STANDINGS=normalizeStandings(LEAGUE);MATCHES=normalizeMatches(LEAGUE);FORM_CACHE=null;SQUAD_CACHE=null;
     if(!STANDINGS.length)throw Error("No teams returned. Check the H2H league ID.");
     $("leagueMsg").textContent=`Loaded ${LEAGUE.league?.name||"H2H league"} · ${STANDINGS.length} teams · ${LEAGUE.pagesFetched||1} match page(s)`;
+    $("chipTracker").innerHTML='<p class="muted">Not loaded yet — click "Load chip usage".</p>';
     renderStandings();renderCup();
   }catch(e){$("leagueMsg").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
 }
+/* Mini-league chip tracker: reuses the same /api/histories batch endpoint
+   the Carabao Cup engine already relies on for manager GW scores — each
+   entry's history payload also carries a "chips" array (name + event),
+   which is all that's needed to say who's already burned what. */
+const CHIP_LABEL={wildcard:"Wildcard",freehit:"Free Hit",bboost:"Bench Boost","3xc":"Triple Captain"};
+async function loadChipTracker(){
+  if(!STANDINGS.length){$("chipTracker").innerHTML='<p class="muted">Load the H2H league first.</p>';return}
+  $("chipTracker").innerHTML=`<p class="muted">Loading chip histories for ${STANDINGS.length} managers…</p>`;
+  try{
+    const histories=await getJSON(API+"/histories",{method:"POST",body:JSON.stringify({entryIds:STANDINGS.map(t=>t.entry)})});
+    const rows=STANDINGS.map(t=>{
+      const chips=histories[t.entry]?.chips||[];
+      const used=chips.map(c=>`${CHIP_LABEL[c.name]||c.name} (GW${c.event})`);
+      const usedNames=chips.map(c=>c.name);
+      // Wildcard is the one chip playable twice a season (once per half);
+      // the other three are once-only, so "remaining" checks differ.
+      const remaining=Object.keys(CHIP_LABEL).filter(k=>k==="wildcard"
+        ?usedNames.filter(n=>n==="wildcard").length<2
+        :!usedNames.includes(k)).map(k=>CHIP_LABEL[k]);
+      return {name:t.name,manager:t.manager,used,remaining};
+    }).sort((a,b)=>b.used.length-a.used.length);
+    $("chipTracker").innerHTML='<div class="tableWrap"><table style="min-width:640px"><thead><tr><th>Team</th><th>Chips used</th><th>Still available</th></tr></thead><tbody>'
+      +rows.map(r=>`<tr><td><b>${esc(r.name)}</b><div class="muted" style="font-size:11px">${esc(r.manager)}</div></td><td>${r.used.length?r.used.map(esc).join("<br>"):'<span class="muted">None yet</span>'}</td><td>${r.remaining.length?r.remaining.map(esc).join(", "):'<span class="muted">All used</span>'}</td></tr>`).join("")
+      +'</tbody></table></div><p class="muted" style="margin-top:8px;font-size:11px">Wildcard can be played twice a season (once per half) — "still available" accounts for that; the other three chips are once each.</p>';
+  }catch(e){$("chipTracker").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
+}
+$("loadChips").onclick=loadChipTracker;
 function renderStandings(){
   STANDINGS.sort((a,b)=>a.rank-b.rank);
   $("standings").innerHTML='<h3>Current standings</h3><div class="tableWrap"><table style="min-width:520px"><thead><tr><th>#</th><th>Team</th><th>Pts</th><th>W-D-L</th></tr></thead><tbody>'+STANDINGS.map(t=>`<tr><td>${t.rank}</td><td><b>${esc(t.name)}</b><div class="muted">${esc(t.manager)}</div></td><td>${t.total}</td><td>${t.wins}-${t.draws}-${t.losses}</td></tr>`).join("")+'</tbody></table></div>';
@@ -835,13 +939,21 @@ function connectCol(htmlArr,mirror){
 }
 function renderCup(){
   const el=$("cupContent");
-  if(!STANDINGS.length){el.innerHTML="<h2>🏆 Supreme Carabao Cup</h2><p class='muted'>Load your H2H league first.</p>";return}
+  if(!SHARED_VIEW && !STANDINGS.length){el.innerHTML="<h2>🏆 Supreme Carabao Cup</h2><p class='muted'>Load your H2H league first.</p>";return}
   if(!CUP){el.innerHTML="<div class='trophy'>🏆</div><h2>Supreme Carabao Cup</h2><p class='muted'>Round 1 uses H2H positions after GW8; later rounds use the locked bracket.</p><button class='btn gold' id='makeCup'>Create Competition</button>";$("makeCup").onclick=createCup;return}
   const status=`Current GW${GW}. Results are shown only when the required gameweek has data.`;
   const r1Locked=GW>=CUP.rules.r1, r16Locked=GW>=CUP.rules.r16;
-  el.innerHTML=`<div class="grid g4"><div class="stat"><small>Round 1</small><b>GW9</b><small>Seeds 13–20</small></div><div class="stat"><small>Round of 16</small><b>GW15</b><small>8 + 8</small></div><div class="stat"><small>Quarterfinal</small><b>GW24</b></div><div class="stat"><small>Final</small><b>GW35</b><small>🏆</small></div></div>
+  const shareBar=SHARED_VIEW
+    ?`<div class="notice" style="margin-bottom:14px"><b>👀 Viewing a shared bracket</b> — this is a read-only copy someone sent you, not live-connected to any league. <button class="btn" id="exitShared" style="margin-left:8px">Load my own league instead</button></div>`
+    :`<div class="notice" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b>Share this bracket:</b>
+        <button class="btn" id="shareCupLink">🔗 Copy shareable link</button>
+        <button class="btn" id="shareCupText">📋 Copy as text</button>
+        <button class="btn" id="shareCupImage">🖼️ Download image</button>
+      </div>`;
+  el.innerHTML=`${shareBar}<div class="grid g4"><div class="stat"><small>Round 1</small><b>GW9</b><small>Seeds 13–20</small></div><div class="stat"><small>Round of 16</small><b>GW15</b><small>8 + 8</small></div><div class="stat"><small>Quarterfinal</small><b>GW24</b></div><div class="stat"><small>Final</small><b>GW35</b><small>🏆</small></div></div>
   <div class="notice" style="margin:14px 0"><b>Rule:</b> ties are decided by normal FPL points in the listed gameweek, not H2H points. Round 1 and Round of 16 are drawn together once table positions lock after GW8; each round's matchups and results appear as soon as they're known. ${esc(status)}</div>
   ${CUP.champion?`<div class="champ"><div class="trophy">🏆</div><h2>${esc(CUP.champion.name)}</h2><div class="muted">Champion · GW35</div></div>`:""}
+  <div id="bracketCapture">
   <div class="r1standalone">
     <div class="roundTitle">Round 1 · GW9 (seeds 13–20, feeds the Round of 16 below)</div>
     <div class="r1grid">${(CUP.r1||[]).map(m=>matchHTML(m,r1Locked)).join("")}</div>
@@ -876,7 +988,80 @@ function renderCup(){
       ${col("R16 · GW15",r16R,r1Locked,r16Locked,true)}
     </div>`;
   })()}
-  </div></div>`;
+  </div></div>
+  </div>`;
+  if(SHARED_VIEW){
+    $("exitShared").onclick=()=>{SHARED_VIEW=false;history.replaceState(null,"",location.pathname+location.search);CUP=loadSaved();renderCup()};
+    return;
+  }
+  $("shareCupLink").onclick=async()=>{
+    try{await navigator.clipboard.writeText(cupShareURL());botToastOn("shareCupLink","Link copied!")}
+    catch{botToastOn("shareCupLink","Couldn't copy — copy manually from the address bar after clicking Share.")}
+  };
+  $("shareCupText").onclick=async()=>{
+    try{await navigator.clipboard.writeText(cupToText());botToastOn("shareCupText","Copied!")}
+    catch{botToastOn("shareCupText","Couldn't copy to clipboard.")}
+  };
+  $("shareCupImage").onclick=async()=>{
+    const btn=$("shareCupImage"),original=btn.textContent;
+    if(typeof html2canvas!=="function"){btn.textContent="Image tool still loading, try again";setTimeout(()=>btn.textContent=original,2500);return}
+    btn.textContent="Rendering…";
+    try{
+      const canvas=await html2canvas($("bracketCapture"),{backgroundColor:"#06100b",scale:2});
+      const link=document.createElement("a");
+      link.download=`carabao-cup-${(LEAGUE?.league?.name||"bracket").replace(/[^a-z0-9]+/gi,"-").toLowerCase()}.png`;
+      link.href=canvas.toDataURL("image/png");
+      link.click();
+    }catch(e){btn.textContent="Couldn't render image";setTimeout(()=>btn.textContent=original,2500);return}
+    btn.textContent=original;
+  };
+}
+// Small inline confirmation flash on a share button, so copying feels
+// confirmed without needing a separate toast/notification system.
+function botToastOn(id,msg){const b=$(id);if(!b)return;const orig=b.textContent;b.textContent=msg;setTimeout(()=>{if($(id))$(id).textContent=orig},2200)}
+// Encodes the current bracket (with team names already embedded in every
+// match, not just IDs) into a URL fragment so it's viewable by anyone with
+// the link, without them needing to load the H2H league themselves.
+function cupShareURL(){
+  const payload=JSON.stringify({leagueName:LEAGUE?.league?.name||"H2H League",cup:CUP});
+  const b64=btoa(unescape(encodeURIComponent(payload)));
+  const url=new URL(location.href);
+  url.hash="shared_cup="+b64;
+  return url.toString();
+}
+function cupToText(){
+  const name=LEAGUE?.league?.name||"H2H League";
+  const line=m=>{
+    if(!m)return "TBD vs TBD";
+    const label=x=>!x?"TBD":x.isRef?`Seed ${x.seedA}/${x.seedB}`:x.name;
+    const score=(x,s)=>(!x||x.isRef||s==null)?"":` (${s})`;
+    return `${esc0(label(m.a))}${score(m.a,m.as)} vs ${esc0(label(m.b))}${score(m.b,m.bs)}`;
+  };
+  const esc0=s=>s; // plain text, no HTML escaping needed here
+  const section=(title,arr)=>arr?.length?`\n${title}\n`+arr.map(m=>"• "+line(m)).join("\n"):"";
+  let out=`🏆 ${name} — Supreme Carabao Cup\n`;
+  if(CUP.champion) out+=`\nChampion: ${CUP.champion.name} 🏆\n`;
+  out+=section("Round 1 (GW9)",CUP.r1);
+  out+=section("Round of 16 (GW15)",CUP.r16);
+  out+=section("Quarterfinal (GW24)",CUP.qf);
+  out+=section("Semifinal (GW29)",CUP.sf);
+  out+=section("Final (GW35)",CUP.final);
+  return out.trim();
+}
+// If the page was opened via a shared-bracket link, decode it and jump
+// straight to a read-only view of that bracket — no league load needed.
+function tryLoadSharedCup(){
+  const m=location.hash.match(/shared_cup=([^&]+)/);
+  if(!m)return false;
+  try{
+    const payload=JSON.parse(decodeURIComponent(escape(atob(m[1]))));
+    if(!payload?.cup)return false;
+    CUP=payload.cup;SHARED_VIEW=true;LEAGUE={league:{name:payload.leagueName}};
+    document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.tab==="cup"));
+    document.querySelectorAll(".tab").forEach(s=>s.classList.toggle("hidden",s.id!=="cup"));
+    renderCup();
+    return true;
+  }catch{return false}
 }
 async function autoRestoreCup(){if(!STANDINGS.length)return;CUP=loadSaved();if(CUP){await advanceCup()}else renderCup()}
 const HELP_TEXT="Here's everything I can do, free, from your real league data:\n\n"
@@ -889,6 +1074,8 @@ const HELP_TEXT="Here's everything I can do, free, from your real league data:\n
   +"• \"create Carabao bracket\" — cup bracket\n"
   +"• \"who should I captain\" — top captaincy picks (works before a league is loaded)\n"
   +"• \"is it a blank/double gameweek\" — next GW blank/double outlook (works before a league is loaded)\n"
+  +"• \"who should I bring in for £7m\" / \"transfers under budget\" — transfer planner (works before a league is loaded)\n"
+  +"• \"when should I wildcard/bench boost/free hit\" — chip advisor (needs your team analyzed first)\n"
   +"• just type a team or manager name — a quick summary of that team\n\n"
   +"I'm a free rule-based bot, not a general AI, so I look for phrases like these rather than understanding truly anything you type.";
 /* Blank/double gameweek and captaincy answers reuse the same ROWS/FXIDX
@@ -918,6 +1105,44 @@ function captainAnswer(){
   return "🎖️ Top captaincy picks right now:\n"+top.map((r,i)=>`${i+1}. ${esc(r.name)} (${esc(r.team)}) — ${r.capScore.toFixed(1)} xP${ownNote(r)}`).join("\n")
     +"\n\nFull breakdown, including differentials, is on the Captaincy tab.";
 }
+// Pulls a £ budget out of free text ("who can I get for 7", "£6.5m budget",
+// "under 8m") — defaults to the bank on file for the analyzed team, or a
+// sensible mid-price fallback if no team's been loaded and no number given.
+function extractBudget(text){
+  const m=text.match(/£?\s*(\d+(?:\.\d+)?)\s*m?\b/);
+  if(m)return Math.max(3.5,Math.min(15,parseFloat(m[1])));
+  return MY_BANK>=3.5?MY_BANK:5.0;
+}
+function transferAnswer(text){
+  if(!ROWS.length)return "I don't have player data loaded yet — give it a second and try again.";
+  const budget=extractBudget(text);
+  const posMatch=text.match(/\b(gkp|goalkeeper|def|defender|mid|midfielder|fwd|forward)\b/);
+  const posMap={gkp:"GKP",goalkeeper:"GKP",def:"DEF",defender:"DEF",mid:"MID",midfielder:"MID",fwd:"FWD",forward:"FWD"};
+  const pos=posMatch?posMap[posMatch[1]]:"ALL";
+  const list=ROWS.filter(r=>(pos==="ALL"||r.pos===pos)&&r.price<=budget+0.001&&r.status==="a"&&r.chance>=75&&!MY_OWNED_IDS.has(r.id))
+    .sort((a,b)=>b.score-a.score).slice(0,5);
+  if(!list.length)return `Nobody${pos!=="ALL"?" in "+pos:""} within £${budget.toFixed(1)}m clears my availability bar right now — try a higher budget.`;
+  return `💸 Best options${pos!=="ALL"?" ("+pos+")":""} within £${budget.toFixed(1)}m:\n`
+    +list.map((r,i)=>`${i+1}. ${esc(r.name)} (${esc(r.team)}) £${r.price.toFixed(1)}m — score ${r.score.toFixed(1)}, ${fixtureLabel(r.ease)}`).join("\n")
+    +"\n\nFull list is on the Team Analyzer tab's Transfer Planner.";
+}
+function chipAnswer(){
+  if(!MY_SQUAD.length)return "Analyze your team on the Team Analyzer tab first — chip timing is based on your actual squad's fixtures, not a generic list.";
+  const LOOKAHEAD=8;let bestFH={gw:0,blanks:-1},bestBB={gw:0,doubles:-1,names:[]};
+  for(let g=GW+1; g<GW+1+LOOKAHEAD; g++){
+    let blanks=0,doubles=0,names=[];
+    MY_SQUAD.forEach(p=>{
+      const fx=(FXIDX[p.info.teamId]||[]).filter(f=>f.event===g);
+      if(fx.length===0)blanks++;else if(fx.length>=2){doubles++;names.push(p.info.name)}
+    });
+    if(blanks>bestFH.blanks)bestFH={gw:g,blanks};
+    if(doubles>bestBB.doubles)bestBB={gw:g,doubles,names};
+  }
+  const bits=[];
+  bits.push(bestFH.blanks>=3?`🆓 Free Hit looks best around GW${bestFH.gw} (${bestFH.blanks}/15 blanking).`:"🆓 No gameweek has enough of your squad blanking yet to clearly call for Free Hit.");
+  bits.push(bestBB.doubles>=3?`⚡ Bench Boost/Triple Captain looks best around GW${bestBB.gw} (${bestBB.doubles}/15 doubling: ${bestBB.names.slice(0,4).map(esc).join(", ")}).`:"⚡ No strong double-gameweek stack yet — worth rechecking closer to the time.");
+  return bits.join("\n")+"\n\nFull GW-by-GW table is on the Team Analyzer tab's Chip Advisor.";
+}
 function greetingReply(){
   const hour=new Date().getHours();
   const g=hour<12?"Morning!":hour<18?"Afternoon!":"Evening!";
@@ -936,6 +1161,8 @@ async function answer(q){
   // the H2H league, so they work even before a league has been loaded.
   if(l.includes("blank")||l.includes("double gameweek")||l.includes("double gw")||l.includes("dgw")||l.includes("bgw")||(l.includes("this week")&&(l.includes("blank")||l.includes("double")))){botSay(gwBlankDoubleAnswer());return}
   if(l.includes("captain")||(l.includes("who should i")&&l.includes("this week"))){botSay(captainAnswer());return}
+  if(l.includes("wildcard")||l.includes("bench boost")||l.includes("triple captain")||l.includes("free hit")||l.includes("which chip")||l.includes("what chip")){botSay(chipAnswer());return}
+  if(/\b(transfer|bring in|afford|budget|who (can|should) i (buy|get|sign))\b/.test(l)){botSay(transferAnswer(l));return}
 
   if(!STANDINGS.length){botSay("Load the H2H league first (enter your league ID above and hit Load) so I have the teams and manager IDs — then ask away, e.g. \"who's top\" or \"predict who finishes top\".");return}
 
@@ -965,7 +1192,9 @@ async function answer(q){
   botSay("I didn't catch a command in that. I'm a free rule-based bot rather than a general AI, so I look for specific phrases — type \"help\" to see the full list, e.g. \"predict who finishes top\", \"compare TeamA and TeamB\", \"who's top of the table\".");
 }
 $("leagueId").value=localStorage.getItem("supreme_h2h_id")||"";
-renderButtons();renderCup();loadBase();
+renderButtons();
+if(!tryLoadSharedCup())renderCup();
+loadBase();
 
 /* ---- Team Analyzer ---- */
 $("teamId").value=localStorage.getItem("supreme_team_id")||"";
@@ -1034,8 +1263,9 @@ async function analyzeTeam(id){
       return holdCase?`${base} Track record and role suggest this may be a form dip worth riding out rather than an automatic sell —${trackNote(p)}`:base;
     }),...injuryFlags,...fixtureFlags].slice(0,6);
     const ownedIds=new Set(squad.map(p=>p.element));
-    MY_TEAM_ID=id;MY_OWNED_IDS=ownedIds;
-    renderCaptaincy();renderDifferentials();
+    MY_TEAM_ID=id;MY_OWNED_IDS=ownedIds;MY_SQUAD=squad;MY_BANK=parseFloat(bank)||0;
+    $("planBudget").value=Math.max(3.5,Math.min(15,MY_BANK||5)).toFixed(1);$("planBudgetLabel").textContent=$("planBudget").value;
+    renderCaptaincy();renderDifferentials();renderTransferPlan();renderChipAdvisor();
     const weakSlots=weakByScore.slice(0,2);
     const suggestions=weakSlots.map(w=>{
       const budget=w.info.price+parseFloat(bank);
