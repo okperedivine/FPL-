@@ -305,9 +305,9 @@ setInterval(()=>{checkDeadlineReminder();if(BS)renderRemindBtn()},60*1000);
    while it was in the background (throttled/paused timers). */
 const REFRESH_MS=5*60*1000;
 let lastLoadTime=0;
-setInterval(()=>{ if(BS) loadBase(); },REFRESH_MS);
+setInterval(()=>{ if(BS) loadBase(); if(STANDINGS.length) refreshLeagueLive(); },REFRESH_MS);
 document.addEventListener("visibilitychange",()=>{
-  if(document.visibilityState==="visible"&&BS&&Date.now()-lastLoadTime>REFRESH_MS) loadBase();
+  if(document.visibilityState==="visible"&&BS&&Date.now()-lastLoadTime>REFRESH_MS){ loadBase(); if(STANDINGS.length) refreshLeagueLive(); }
 });
 /* Builds, per team, a chronological list of every scheduled fixture with
    opponent id, venue and difficulty. Powers both the Next Opponent chip and
@@ -700,11 +700,45 @@ async function loadChipTracker(){
   }catch(e){$("chipTracker").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
 }
 $("loadChips").onclick=loadChipTracker;
+function teamNameByEntry(id){const t=STANDINGS.find(x=>String(x.entry)===String(id));return t?t.name:"Unknown"}
+/* This GW's H2H match for a given entry — used to show the current-round
+   opponent and live score on the standings table. Points come straight from
+   the H2H matches payload, so they track FPL's own live/bonus updates as the
+   backend's cache refreshes. */
+function currentMatch(entry){
+  const gw=GW||1;
+  return MATCHES.find(m=>m.event===gw&&(String(m.a)===String(entry)||String(m.b)===String(entry)))||null;
+}
+function opponentCells(t){
+  const cm=currentMatch(t.entry);
+  const gw=GW||1;
+  if(!cm)return{opp:'<span class="muted">No fixture GW'+gw+'</span>',score:'<span class="muted">—</span>'};
+  const isA=String(cm.a)===String(t.entry);
+  const oppId=isA?cm.b:cm.a, myPts=isA?cm.ap:cm.bp, oppPts=isA?cm.bp:cm.ap;
+  const color=myPts>oppPts?"var(--g)":myPts<oppPts?"var(--red)":"inherit";
+  return{
+    opp:`vs <b>${esc(teamNameByEntry(oppId))}</b>`,
+    score:`<b style="color:${color}">${myPts}</b> <span class="muted">-</span> <b>${oppPts}</b>`
+  };
+}
 function renderStandings(){
   STANDINGS.sort((a,b)=>a.rank-b.rank);
-  $("standings").innerHTML='<h3>Current standings</h3><div class="tableWrap"><table style="min-width:520px"><thead><tr><th>#</th><th>Team</th><th>Pts</th><th>W-D-L</th></tr></thead><tbody>'+STANDINGS.map(t=>`<tr><td>${t.rank}</td><td><b>${esc(t.name)}</b><div class="muted">${esc(t.manager)}</div></td><td>${t.total}</td><td>${t.wins}-${t.draws}-${t.losses}</td></tr>`).join("")+'</tbody></table></div>';
+  const gw=GW||1;
+  $("standings").innerHTML='<h3>Current standings</h3><div class="tableWrap"><table style="min-width:700px"><thead><tr><th>#</th><th>Team</th><th>Pts</th><th>W-D-L</th><th>GW'+gw+' Opponent</th><th>GW'+gw+' Score</th></tr></thead><tbody>'+STANDINGS.map(t=>{const c=opponentCells(t);return `<tr><td>${t.rank}</td><td><b>${esc(t.name)}</b><div class="muted">${esc(t.manager)}</div></td><td>${t.total}</td><td>${t.wins}-${t.draws}-${t.losses}</td><td>${c.opp}</td><td>${c.score}</td></tr>`}).join("")+'</tbody></table><p class="muted" style="padding:8px 10px;font-size:11px">Live scores refresh automatically as FPL updates them (every few minutes, faster once bonus points are confirmed).</p></div>';
   const picker=$("teamPicker");
   picker.innerHTML='<option value="">— pick a team —</option>'+STANDINGS.map(t=>`<option value="${t.entry}">${esc(t.name)}</option>`).join("");
+}
+/* Quiet background refresh of just the H2H matches/standings (no message
+   flicker), so the GW opponent + live score on the table stay current
+   without the user re-clicking "Load league". */
+async function refreshLeagueLive(){
+  const id=$("leagueId").value.trim();
+  if(!id||!STANDINGS.length)return;
+  try{
+    const fresh=await getJSON(API+"/h2h/"+encodeURIComponent(id));
+    STANDINGS=normalizeStandings(fresh);MATCHES=normalizeMatches(fresh);
+    renderStandings();
+  }catch(e){/* keep showing last-known data if a background refresh fails */}
 }
 function preGW(gw){
   const base=STANDINGS.map(t=>({...t,total:0,wins:0,draws:0,losses:0})),m=Object.fromEntries(base.map(t=>[String(t.entry),t]));
