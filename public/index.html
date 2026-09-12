@@ -76,6 +76,22 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 .bPair.rtl::after{right:auto;left:calc(var(--bgap) * -1)}
 .bSingle.rtl::after{right:auto;left:calc(var(--bgap) * -1)}
 .error{color:#ffad9d}.loading{color:#bdd1c4}.hidden{display:none}
+/* Live GW match cards in the H2H Analyst tab — tap a card to expand each
+   squad's live points, which recompute automatically as player scores
+   update (bonus points, goals, etc.) on the next data refresh. */
+.liveMatch{background:#07120c;border:1px solid var(--line);border-radius:11px;margin-bottom:10px;cursor:pointer;overflow:hidden}
+.liveMatch .lmHead{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 13px;font-size:13px}
+.liveMatch .lmTeam{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.liveMatch .lmScore{white-space:nowrap;font-size:15px;padding:0 6px}
+.liveMatch .lmCaret{color:var(--muted);font-size:11px;transition:transform .15s}
+.liveMatch.open .lmCaret{transform:rotate(180deg)}
+.liveMatch .lmBody{display:none;grid-template-columns:1fr 1fr;border-top:1px solid #234a3366}
+.liveMatch.open .lmBody{display:grid}
+.liveMatch .lmSquad{padding:10px 12px}
+.liveMatch .lmSquad:first-child{border-right:1px solid #234a3366}
+.plRow{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid #234a3322}
+.plRow:last-child{border:0}
+.plRow.bench{opacity:.55}
 </style>
 </head>
 <body>
@@ -156,6 +172,11 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 <div id="chat" class="chat"></div>
 <div class="chatbar"><input id="query" placeholder="Ask the H2H bot…"><button class="btn primary" id="ask">Ask</button></div>
 </div>
+</div>
+<div class="panel">
+<h2 style="margin-top:0">⚡ Live GW Matches</h2>
+<p class="muted" style="margin-top:0">This gameweek's H2H fixtures with a live score computed from each squad's actual picks — tap a match to see both line-ups' live points. Recalculates as FPL updates player stats.</p>
+<div id="liveMatches" class="muted">Load the H2H league first.</div>
 </div>
 <div class="panel">
 <h2 style="margin-top:0">🃏 Mini-League Chip Tracker</h2>
@@ -635,6 +656,7 @@ async function loadBase(){
     setLive("Live FPL data loaded · "+new Date().toLocaleTimeString());updateDeadlineDisplay();renderPlayers();autoRestoreCup();
     renderCaptaincy();renderDifferentials();renderPriceWatch();renderInjuryDigest();renderTransferPlan();
     checkDeadlineReminder();renderRemindBtn();
+    if(STANDINGS.length){renderStandings();renderLiveMatches();}
   }catch(e){
     setLive("Backend/API connection failed",true);
     if(!isRefresh)$("boardNotice").innerHTML=`<span class="error">${esc(e.message)}</span><br>Make sure this app is running from its Node server, not as a downloaded HTML file.`;
@@ -666,11 +688,11 @@ async function loadLeague(){
   const id=$("leagueId").value.trim();if(!id){$("leagueMsg").textContent="Enter a league ID.";return}
   localStorage.setItem("supreme_h2h_id",id);$("leagueMsg").textContent="Loading league through backend…";
   try{
-    LEAGUE=await getJSON(API+"/h2h/"+encodeURIComponent(id));STANDINGS=normalizeStandings(LEAGUE);MATCHES=normalizeMatches(LEAGUE);FORM_CACHE=null;SQUAD_CACHE=null;
+    LEAGUE=await getJSON(API+"/h2h/"+encodeURIComponent(id));STANDINGS=normalizeStandings(LEAGUE);MATCHES=normalizeMatches(LEAGUE);FORM_CACHE=null;SQUAD_CACHE=null;SQUAD_CACHE_GW=null;
     if(!STANDINGS.length)throw Error("No teams returned. Check the H2H league ID.");
     $("leagueMsg").textContent=`Loaded ${LEAGUE.league?.name||"H2H league"} · ${STANDINGS.length} teams · ${LEAGUE.pagesFetched||1} match page(s)`;
     $("chipTracker").innerHTML='<p class="muted">Not loaded yet — click "Load chip usage".</p>';
-    renderStandings();renderCup();
+    renderStandings();renderCup();renderLiveMatches();
   }catch(e){$("leagueMsg").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
 }
 /* Mini-league chip tracker: reuses the same /api/histories batch endpoint
@@ -737,8 +759,63 @@ async function refreshLeagueLive(){
   try{
     const fresh=await getJSON(API+"/h2h/"+encodeURIComponent(id));
     STANDINGS=normalizeStandings(fresh);MATCHES=normalizeMatches(fresh);
-    renderStandings();
+    renderStandings();renderLiveMatches();
   }catch(e){/* keep showing last-known data if a background refresh fails */}
+}
+/* A single pick's live points: element's current-event points (which FPL
+   itself updates live as goals/bonus/etc. land) × that pick's multiplier
+   (0 for bench, 2/3 for captain — already reflects Triple Captain/Bench
+   Boost since FPL sets the multiplier field itself for those chips). */
+function pickLivePoints(p){const el=ELEMENTS_BY_ID[p.element];return el?num(el.event_points)*p.multiplier:0}
+function squadLiveTotal(picks){return (picks||[]).filter(p=>p.multiplier>0).reduce((s,p)=>s+pickLivePoints(p),0)}
+function squadRowsHTML(picks){
+  const sorted=[...(picks||[])].sort((a,b)=>(b.multiplier>0)-(a.multiplier>0)||pickLivePoints(b)-pickLivePoints(a));
+  return sorted.map(p=>{
+    const el=ELEMENTS_BY_ID[p.element];
+    const tag=p.is_captain?" 🅲":p.is_vice_captain?" 🅥":"";
+    return `<div class="plRow${p.multiplier>0?"":" bench"}"><span>${esc(el?.web_name||"—")}${tag}</span><b>${pickLivePoints(p)}</b></div>`;
+  }).join("");
+}
+/* Live GW Matches panel: one card per current-GW H2H fixture, live score
+   from each squad's actual picks. Tapping a card expands both line-ups.
+   Fetches picks once per GW (cached), then just re-renders on every
+   refresh — the live points themselves come from the bootstrap data that
+   already refreshes every few minutes, so no extra network calls are
+   needed to pick up new player scores. */
+async function renderLiveMatches(){
+  const el=$("liveMatches");
+  if(!STANDINGS.length){el.innerHTML='<p class="muted">Load the H2H league first.</p>';return}
+  const gw=GW||1;
+  const fixtures=MATCHES.filter(m=>m.event===gw);
+  if(!fixtures.length){el.innerHTML=`<p class="muted">No H2H fixtures found for GW${gw}.</p>`;return}
+  const openIds=new Set([...el.querySelectorAll(".liveMatch.open")].map(x=>x.dataset.mid));
+  if(!openIds.size) el.innerHTML='<p class="muted">Loading live squads…</p>';
+  try{
+    const squads=await getSquads();
+    el.innerHTML=fixtures.map(m=>{
+      const mid=String(m.id??`${m.event}-${m.a}-${m.b}`);
+      const aName=teamNameByEntry(m.a),bName=teamNameByEntry(m.b);
+      const aPicks=squads[m.a]||[],bPicks=squads[m.b]||[];
+      const aLive=squadLiveTotal(aPicks),bLive=squadLiveTotal(bPicks);
+      const aColor=aLive>bLive?"var(--g)":aLive<bLive?"var(--red)":"inherit";
+      const bColor=bLive>aLive?"var(--g)":bLive<aLive?"var(--red)":"inherit";
+      return `<div class="liveMatch${openIds.has(mid)?" open":""}" data-mid="${mid}">
+        <div class="lmHead">
+          <div class="lmTeam"><b>${esc(aName)}</b></div>
+          <div class="lmScore"><b style="color:${aColor}">${aLive}</b> <span class="muted">-</span> <b style="color:${bColor}">${bLive}</b></div>
+          <div class="lmTeam" style="text-align:right"><b>${esc(bName)}</b></div>
+          <div class="lmCaret">▾</div>
+        </div>
+        <div class="lmBody">
+          <div class="lmSquad">${aPicks.length?squadRowsHTML(aPicks):'<p class="muted" style="font-size:11px">No picks found.</p>'}</div>
+          <div class="lmSquad">${bPicks.length?squadRowsHTML(bPicks):'<p class="muted" style="font-size:11px">No picks found.</p>'}</div>
+        </div>
+      </div>`;
+    }).join("")+'<p class="muted" style="font-size:11px;margin-top:2px">Bonus points can take a while to land after full time — scores here will settle once FPL confirms them.</p>';
+    el.querySelectorAll(".liveMatch").forEach(card=>{
+      card.querySelector(".lmHead").onclick=()=>card.classList.toggle("open");
+    });
+  }catch(e){el.innerHTML='<span class="error">Could not load live squads: '+esc(e.message)+'</span>'}
 }
 function preGW(gw){
   const base=STANDINGS.map(t=>({...t,total:0,wins:0,draws:0,losses:0})),m=Object.fromEntries(base.map(t=>[String(t.entry),t]));
@@ -769,15 +846,15 @@ async function getForm(){
 /* Each manager's actual current starting XI, fetched once and cached, so we
    can score real squads with the same fixture-aware engine as the Player
    Board — no external AI required, just real data plus real math. */
-let SQUAD_CACHE=null;
+let SQUAD_CACHE=null,SQUAD_CACHE_GW=null;
 async function getSquads(){
-  if(SQUAD_CACHE)return SQUAD_CACHE;
+  if(SQUAD_CACHE&&SQUAD_CACHE_GW===GW)return SQUAD_CACHE;
   const out={};
   await Promise.all(STANDINGS.map(async t=>{
     try{ out[t.entry]=(await getJSON(API+`/entry/${t.entry}/picks/${GW}`)).picks||[]; }
     catch{ out[t.entry]=[]; }
   }));
-  SQUAD_CACHE=out;return out;
+  SQUAD_CACHE=out;SQUAD_CACHE_GW=GW;return out;
 }
 function squadPower(picks){
   if(!ROWS.length)return 0;
