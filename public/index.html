@@ -4,19 +4,81 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no">
 <title>Supreme FPL Hub</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%BD%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 <style>
-*{box-sizing:border-box}html{overflow-x:hidden;max-width:100vw}body{margin:0;background:#06100b;color:#eef7f1;font-family:Inter,Arial,sans-serif;overflow-x:hidden;max-width:100vw;overscroll-behavior-x:none}
-:root{--g:#35d07f;--p:#0d1d15;--p2:#11281c;--line:#234a33;--muted:#9db3a5;--gold:#ffd166;--red:#ff7979}
-.wrap{width:min(1400px,94%);margin:auto}.hero{padding:34px 0 20px}.k{color:var(--g);font-size:12px;font-weight:800;letter-spacing:.15em;text-transform:uppercase}.hero h1{font-size:clamp(36px,6vw,64px);margin:8px 0}.hero p{color:var(--muted);line-height:1.6;max-width:900px}.live{font-size:12px;color:#bdd1c4}.dot{display:inline-block;width:8px;height:8px;background:var(--g);border-radius:50%;margin-right:7px}
-.nav{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 18px}.nav button,.btn,.pill{border:1px solid var(--line);background:#0a1710;color:#e8f2eb;border-radius:10px;padding:10px 14px;font-weight:700}.nav button.active,.btn.primary,.pill.active{background:#198a51;border-color:#35d07f}.btn.gold{background:#5e4614;border-color:#a98128}
-.panel{background:linear-gradient(145deg,#102319,#08130d);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 12px 35px #0005;min-width:0}.grid{display:grid;gap:14px}.g2{grid-template-columns:1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}@media(max-width:850px){.g2,.g4{grid-template-columns:1fr}}
+*{box-sizing:border-box}
+html{overflow-x:hidden;max-width:100vw;scrollbar-color:#2b5a3d #0a1710}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',Arial,sans-serif;overflow-x:hidden;max-width:100vw;overscroll-behavior-x:none;line-height:1.5}
+:root{--bg:#060f0a;--g:#35d07f;--g2:#1fa968;--p:#0d1d15;--p2:#11281c;--line:#234a33;--muted:#9db3a5;--ink:#eef7f1;--gold:#ffd166;--red:#ff7979;--radius:14px;--disp:'Barlow Condensed',Inter,Arial,sans-serif}
+::selection{background:var(--g);color:#06100b}
+a{color:var(--g)}
+:focus-visible{outline:2px solid var(--g);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.001s!important;transition-duration:.001s!important}}
+
+.wrap{width:min(1400px,94%);margin:auto}
+.hero{padding:38px 0 22px;position:relative}
+.hero::before{content:"";position:absolute;top:-60px;left:-10%;width:520px;height:340px;background:radial-gradient(closest-side,#1fa96833,transparent 70%);pointer-events:none;z-index:0}
+.hero>*{position:relative;z-index:1}
+.eyebrow{display:inline-flex;align-items:center;gap:7px;background:#12291c;border:1px solid var(--line);color:#bfe8d2;font-size:12px;font-weight:600;padding:5px 12px 5px 9px;border-radius:999px}
+.hero h1{font-family:var(--disp);font-weight:800;font-size:clamp(38px,6.4vw,68px);line-height:1.02;letter-spacing:.001em;margin:14px 0 10px;background:linear-gradient(115deg,#f2fff7 15%,var(--g) 60%,var(--g2) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--muted);line-height:1.65;max-width:640px;font-size:15px}
+.live{font-size:12px;color:#bdd1c4;display:flex;align-items:center}
+.dot{display:inline-block;width:8px;height:8px;background:var(--g);border-radius:50%;margin-right:7px;box-shadow:0 0 0 3px #35d07f22}
+
+.nav{position:sticky;top:0;z-index:20;display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;margin:10px -2px 20px;padding:10px 2px;background:linear-gradient(#060f0af2 78%,#060f0a00);scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav button{flex:none;border:1px solid var(--line);background:#0a1710;color:#e8f2eb;border-radius:11px;padding:10px 15px;font-weight:600;font-size:13.5px;cursor:pointer;transition:background .15s,border-color .15s,transform .1s;white-space:nowrap}
+.nav button:hover{border-color:#2f6a48;background:#0d1f15}
+.nav button:active{transform:scale(.97)}
+.nav button.active{background:linear-gradient(140deg,#1c9457,#146a3e);border-color:var(--g);color:#fff;box-shadow:0 4px 14px #0d1d1580}
+.btn,.pill{border:1px solid var(--line);background:#0a1710;color:#e8f2eb;border-radius:10px;padding:10px 14px;font-weight:600;font-size:13.5px;cursor:pointer;transition:background .15s,border-color .15s,transform .1s}
+.btn:hover,.pill:hover{border-color:#2f6a48;background:#0d1f15}
+.btn:active,.pill:active{transform:scale(.97)}
+.btn.primary,.pill.active{background:linear-gradient(140deg,#1c9457,#146a3e);border-color:var(--g);color:#fff}
+.btn.gold{background:#5e4614;border-color:#a98128}
+
+.panel{background:linear-gradient(145deg,#102319,#08130d);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 12px 30px #00000040;min-width:0}
+.panel h2,.panel h3{font-family:var(--disp);font-weight:700;letter-spacing:.01em}
+.panel h2{font-size:22px}.panel h3{font-size:17px}
+.grid{display:grid;gap:14px}.g2{grid-template-columns:1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}@media(max-width:850px){.g2,.g4{grid-template-columns:1fr}}
 .controls{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}@media(max-width:900px){.controls{grid-template-columns:1fr 1fr}}@media(max-width:550px){.controls{grid-template-columns:1fr}}
-label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bottom:6px}input{width:100%;background:#06100b;color:#fff;border:1px solid var(--line);border-radius:9px;padding:11px}.pills{display:flex;gap:6px;flex-wrap:wrap}
-.tableWrap{overflow:auto;border:1px solid var(--line);border-radius:12px;min-width:0;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}table{width:100%;border-collapse:collapse;min-width:850px}th,td{padding:10px;border-bottom:1px solid #234a3355;text-align:left;font-size:13px}th{font-size:10px;text-transform:uppercase;color:#9fbaaa;background:#10271c}.muted{color:var(--muted)}.score{color:var(--g);font-weight:900}.tag{background:#173a26;padding:4px 7px;border-radius:99px;font-size:10px;font-weight:800}
-.notice{padding:12px;border:1px solid var(--line);background:#0b1911;border-radius:10px;color:#b9cbbf;font-size:13px;line-height:1.5}.stat{border:1px solid var(--line);border-radius:12px;padding:15px;background:#ffffff04}.stat small{color:var(--muted)}.stat b{display:block;font-size:26px;margin-top:4px}
+label{display:block;color:var(--muted);font-size:12px;font-weight:600;margin-bottom:6px}
+input{width:100%;background:#06100b;color:#fff;border:1px solid var(--line);border-radius:9px;padding:11px;font-family:inherit;transition:border-color .15s}
+input:focus{border-color:var(--g)}
+input[type=range]{-webkit-appearance:none;appearance:none;height:6px;padding:0;background:#132a1d;border:1px solid var(--line);border-radius:99px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--g);border:3px solid #0d1d15;cursor:pointer;box-shadow:0 2px 6px #0007}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--g);border:3px solid #0d1d15;cursor:pointer}
+select{background:#06100b;color:#fff;border:1px solid var(--line);border-radius:9px;padding:11px;font-family:inherit}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+
+.tableWrap{overflow:auto;border:1px solid var(--line);border-radius:12px;min-width:0;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+table{width:100%;border-collapse:collapse;min-width:850px}
+th,td{padding:11px 10px;border-bottom:1px solid #234a3355;text-align:left;font-size:13px}
+th{font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;color:#9fbaaa;background:#10271c;position:sticky;top:0;z-index:1}
+tbody tr{transition:background .12s}
+tbody tr:nth-child(even){background:#ffffff03}
+tbody tr:hover{background:#35d07f0f}
+.muted{color:var(--muted)}.score{color:var(--g);font-weight:800}
+.tag{background:#173a26;padding:4px 8px;border-radius:99px;font-size:10px;font-weight:700}
+
+.notice{padding:12px 14px;border:1px solid var(--line);background:#0b1911;border-radius:10px;color:#b9cbbf;font-size:13px;line-height:1.5}
+.stat{border:1px solid var(--line);border-radius:12px;padding:15px;background:#ffffff04}
+.stat small{color:var(--muted)}.stat b{font-family:var(--disp);display:block;font-size:30px;font-weight:700;margin-top:4px}
+
 .fxrow{display:flex;gap:4px;flex-wrap:wrap;max-width:220px}.fx{font-size:10px;font-weight:800;padding:3px 6px;border-radius:6px;color:#06100b;white-space:nowrap}.fx1,.fx2{background:var(--g)}.fx3{background:var(--gold)}.fx4,.fx5{background:var(--red)}.fx-blank{background:#3a4a41;color:#cfe3d7}
-.chat{height:420px;overflow:auto;display:flex;flex-direction:column;gap:9px}.bubble{padding:11px 13px;border-radius:13px;white-space:pre-wrap;line-height:1.45;max-width:92%}.bot{background:#10271c;border:1px solid var(--line)}.user{background:#198a51;align-self:flex-end}.quick{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.quick button{border:1px solid var(--line);background:#08130d;color:#bdd0c2;border-radius:999px;padding:7px 10px;font-size:11px}.chatbar{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:10px}
+
+.chat{height:420px;overflow:auto;display:flex;flex-direction:column;gap:9px}
+.bubble{padding:11px 13px;border-radius:13px;white-space:pre-wrap;line-height:1.45;max-width:92%}
+.bot{background:#10271c;border:1px solid var(--line)}.user{background:#198a51;align-self:flex-end}
+.quick{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.quick button{border:1px solid var(--line);background:#08130d;color:#bdd0c2;border-radius:999px;padding:7px 10px;font-size:11px;cursor:pointer;transition:background .15s}
+.quick button:hover{background:#0d1f15}
+.chatbar{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:10px}
+
 .bracket{overflow:auto;overscroll-behavior-x:contain}
 .roundTitle{text-align:center;color:var(--gold);font-size:11px;font-weight:900;text-transform:uppercase;margin-bottom:10px}
 .match{background:#07120c;border:1px solid var(--line);border-radius:11px;overflow:hidden;position:relative}
@@ -79,15 +141,16 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 /* Live GW match cards in the H2H Analyst tab — tap a card to expand each
    squad's live points, which recompute automatically as player scores
    update (bonus points, goals, etc.) on the next data refresh. */
-.liveMatch{background:#07120c;border:1px solid var(--line);border-radius:11px;margin-bottom:10px;cursor:pointer;overflow:hidden}
-.liveMatch .lmHead{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 13px;font-size:13px}
+.liveMatch{background:#07120c;border:1px solid var(--line);border-radius:11px;margin-bottom:10px;cursor:pointer;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.liveMatch:hover{border-color:#2f6a48;box-shadow:0 6px 18px #00000030}
+.liveMatch .lmHead{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px;font-size:13px}
 .liveMatch .lmTeam{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.liveMatch .lmScore{white-space:nowrap;font-size:15px;padding:0 6px}
-.liveMatch .lmCaret{color:var(--muted);font-size:11px;transition:transform .15s}
+.liveMatch .lmScore{font-family:var(--disp);white-space:nowrap;font-size:19px;font-weight:700;padding:0 6px}
+.liveMatch .lmCaret{color:var(--muted);font-size:11px;transition:transform .2s}
 .liveMatch.open .lmCaret{transform:rotate(180deg)}
-.liveMatch .lmBody{display:none;grid-template-columns:1fr 1fr;border-top:1px solid #234a3366}
-.liveMatch.open .lmBody{display:grid}
-.liveMatch .lmSquad{padding:10px 12px}
+.liveMatch .lmBody{display:grid;grid-template-columns:1fr 1fr;max-height:0;overflow:hidden;transition:max-height .28s ease}
+.liveMatch.open .lmBody{max-height:640px;border-top:1px solid #234a3366}
+.liveMatch .lmSquad{padding:10px 13px}
 .liveMatch .lmSquad:first-child{border-right:1px solid #234a3366}
 .plRow{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid #234a3322}
 .plRow:last-child{border:0}
@@ -97,20 +160,20 @@ label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bot
 <body>
 <div class="wrap">
 <header class="hero">
-<div class="k">Fantasy Premier League</div>
+<div class="eyebrow">⚽ Fantasy Premier League companion</div>
 <h1>Supreme FPL Hub</h1>
-<p>Player Investment Board · H2H Analyst · Supreme Carabao Cup · Live backend edition. The Carabao Cup is separate from the Supreme Cup and uses normal FPL points from the relevant gameweek to decide each tie.</p>
+<p>Everything for your mini-league in one place: player scouting, captaincy and transfer insights, a live H2H analyst, your own squad's outlook, and the Supreme Carabao Cup knockout. The Carabao Cup is separate from the Supreme Cup and uses normal FPL points from the relevant gameweek to decide each tie.</p>
 <div id="live" class="live"><span class="dot"></span>Starting app…</div>
 <div id="deadline" class="live" style="margin-top:6px"></div>
 <button id="remindBtn" class="btn" style="margin-top:10px">🔔 Remind me 2h before each deadline</button>
 <div id="remindStatus" class="muted" style="font-size:11px;margin-top:6px"></div>
 </header>
 <nav class="nav">
-<button data-tab="board" class="active">Player Board</button>
-<button data-tab="insights">Insights</button>
-<button data-tab="h2h">H2H Analyst</button>
-<button data-tab="team">Team Analyzer</button>
-<button data-tab="cup">Supreme Carabao Cup</button>
+<button data-tab="board" class="active">📋 Player Board</button>
+<button data-tab="insights">💡 Insights</button>
+<button data-tab="h2h">⚔️ H2H Analyst</button>
+<button data-tab="team">🧠 Team Analyzer</button>
+<button data-tab="cup">🏆 Supreme Carabao Cup</button>
 </nav>
 
 <section id="board" class="tab">
