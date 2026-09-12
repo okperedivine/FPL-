@@ -731,22 +731,50 @@ function currentMatch(entry){
   const gw=GW||1;
   return MATCHES.find(m=>m.event===gw&&(String(m.a)===String(entry)||String(m.b)===String(entry)))||null;
 }
-function opponentCells(t){
-  const cm=currentMatch(t.entry);
+/* Standings table now shows a *provisional* position: each team's official
+   league total plus 3/1/0 points for how their in-progress GW match stands
+   right now (using the same live squad score as the Live GW Matches panel).
+   Rows are ordered by that provisional total, and the arrow next to the
+   position compares it to the official (pre-GW) rank — so it keeps moving
+   as player scores update, and settles once FPL confirms the gameweek. */
+async function renderStandings(){
   const gw=GW||1;
-  if(!cm)return{opp:'<span class="muted">No fixture GW'+gw+'</span>',score:'<span class="muted">—</span>'};
-  const isA=String(cm.a)===String(t.entry);
-  const oppId=isA?cm.b:cm.a, myPts=isA?cm.ap:cm.bp, oppPts=isA?cm.bp:cm.ap;
-  const color=myPts>oppPts?"var(--g)":myPts<oppPts?"var(--red)":"inherit";
-  return{
-    opp:`vs <b>${esc(teamNameByEntry(oppId))}</b>`,
-    score:`<b style="color:${color}">${myPts}</b> <span class="muted">-</span> <b>${oppPts}</b>`
-  };
-}
-function renderStandings(){
   STANDINGS.sort((a,b)=>a.rank-b.rank);
-  const gw=GW||1;
-  $("standings").innerHTML='<h3>Current standings</h3><div class="tableWrap"><table style="min-width:700px"><thead><tr><th>#</th><th>Team</th><th>Pts</th><th>W-D-L</th><th>GW'+gw+' Opponent</th><th>GW'+gw+' Score</th></tr></thead><tbody>'+STANDINGS.map(t=>{const c=opponentCells(t);return `<tr><td>${t.rank}</td><td><b>${esc(t.name)}</b><div class="muted">${esc(t.manager)}</div></td><td>${t.total}</td><td>${t.wins}-${t.draws}-${t.losses}</td><td>${c.opp}</td><td>${c.score}</td></tr>`}).join("")+'</tbody></table><p class="muted" style="padding:8px 10px;font-size:11px">Live scores refresh automatically as FPL updates them (every few minutes, faster once bonus points are confirmed).</p></div>';
+  let squads={};
+  if(STANDINGS.length){ try{ squads=await getSquads(); }catch{ squads={}; } }
+  const liveScoreOf=entry=>{
+    if(squads[entry]&&squads[entry].length) return squadLiveTotal(squads[entry]);
+    const cm=currentMatch(entry);
+    if(!cm) return null;
+    return String(cm.a)===String(entry)?cm.ap:cm.bp;
+  };
+  const rows=STANDINGS.map(t=>{
+    const cm=currentMatch(t.entry);
+    let provTotal=t.total,oppId=null,myLive=null,oppLive=null;
+    if(cm){
+      oppId=String(cm.a)===String(t.entry)?cm.b:cm.a;
+      myLive=liveScoreOf(t.entry);oppLive=liveScoreOf(oppId);
+      if(myLive!=null&&oppLive!=null) provTotal=t.total+(myLive>oppLive?3:myLive===oppLive?1:0);
+    }
+    return {...t,provTotal,oppId,myLive,oppLive};
+  });
+  rows.sort((a,b)=>b.provTotal-a.provTotal||a.rank-b.rank);
+  rows.forEach((t,i)=>t.provRank=i+1);
+  $("standings").innerHTML='<h3>Current standings</h3><div class="tableWrap"><table style="min-width:720px"><thead><tr><th>#</th><th>Team</th><th>Pts</th><th>W-D-L</th><th>GW'+gw+' Opponent</th><th>GW'+gw+' Score</th></tr></thead><tbody>'+rows.map(t=>{
+    const moved=t.provRank-t.rank;
+    const arrow=moved<0?'<span style="color:var(--g)">▲</span>':moved>0?'<span style="color:var(--red)">▼</span>':'<span class="muted">–</span>';
+    const posCell=`${t.provRank} ${arrow}`+(moved!==0?`<div class="muted" style="font-size:10px">was ${t.rank}</div>`:"");
+    const ptsCell=t.provTotal+(t.provTotal!==t.total?` <span class="muted" style="font-size:10px">(${t.total})</span>`:"");
+    let oppCell='<span class="muted">No fixture GW'+gw+'</span>',scoreCell='<span class="muted">—</span>';
+    if(t.oppId!=null){
+      oppCell=`vs <b>${esc(teamNameByEntry(t.oppId))}</b>`;
+      if(t.myLive!=null&&t.oppLive!=null){
+        const color=t.myLive>t.oppLive?"var(--g)":t.myLive<t.oppLive?"var(--red)":"inherit";
+        scoreCell=`<b style="color:${color}">${t.myLive}</b> <span class="muted">-</span> <b>${t.oppLive}</b>`;
+      }
+    }
+    return `<tr><td>${posCell}</td><td><b>${esc(t.name)}</b><div class="muted">${esc(t.manager)}</div></td><td>${ptsCell}</td><td>${t.wins}-${t.draws}-${t.losses}</td><td>${oppCell}</td><td>${scoreCell}</td></tr>`;
+  }).join("")+'</tbody></table><p class="muted" style="padding:8px 10px;font-size:11px">Position and points include this gameweek\'s in-progress result — the arrow shows movement from the official pre-gameweek standings, and keeps updating until FPL confirms final scores.</p></div>';
   const picker=$("teamPicker");
   picker.innerHTML='<option value="">— pick a team —</option>'+STANDINGS.map(t=>`<option value="${t.entry}">${esc(t.name)}</option>`).join("");
 }
