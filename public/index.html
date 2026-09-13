@@ -199,6 +199,7 @@ tbody tr:hover{background:#2f7dfd14}
 </header>
 <nav class="nav">
 <button data-tab="board" class="active">Player Board</button>
+<button data-tab="dashboard">Dashboard</button>
 <button data-tab="insights">Insights</button>
 <button data-tab="h2h">H2H Analyst</button>
 <button data-tab="team">Team Analyzer</button>
@@ -220,6 +221,19 @@ tbody tr:hover{background:#2f7dfd14}
 <div class="panel"><h3 style="margin-top:0">📉 Consider Selling / Avoiding</h3><div id="sellList" class="muted">Loading…</div></div>
 </div>
 <div class="tableWrap"><table style="min-width:1100px"><thead><tr><th>#</th><th>Player</th><th>Team</th><th>Pos</th><th>£m</th><th>Form</th><th>Last GW</th><th>xGI/90</th><th>Next Opp</th><th>Fixture Run</th><th title="Overall quality score: recent form + underlying stats + fixture ease (blends the opponent's real current form, not just FPL's fixed difficulty rating)">Score</th><th title="Score ÷ price — how much quality you get per £m spent">Value</th></tr></thead><tbody id="players"></tbody></table></div>
+</section>
+
+<section id="dashboard" class="tab hidden">
+<div class="panel">
+<h2>Your Dashboard</h2>
+<p class="muted" style="margin-top:0">A live snapshot of one team — rank, gameweek score, chips and a captain steer. Uses the same Team ID as Team Analyzer, so it's already filled in once you've analyzed a team there.</p>
+<div class="controls" style="grid-template-columns:1fr auto">
+<div><label>Team ID</label><input id="dashTeamId" placeholder="e.g. 1234567"></div>
+<button class="btn primary" id="loadDashboard" style="align-self:end;margin-bottom:1px">Load Dashboard</button>
+</div>
+<div id="dashMsg" class="notice" style="margin-top:10px">No team loaded yet.</div>
+</div>
+<div id="dashResult"></div>
 </section>
 
 <section id="insights" class="tab hidden">
@@ -260,6 +274,7 @@ tbody tr:hover{background:#2f7dfd14}
 <div class="subnav">
 <button data-subtab="h2hMatches" class="active">Matches</button>
 <button data-subtab="h2hStandings">Standings</button>
+<button data-subtab="h2hRace">Season Race</button>
 </div>
 
 <div id="h2hMatches" class="subtab">
@@ -285,6 +300,15 @@ tbody tr:hover{background:#2f7dfd14}
 <p class="muted" style="margin-top:0">Which chips each manager in your league has already burned this season (Wildcard, Free Hit, Bench Boost, Triple Captain) — straight from FPL's own history for each entry.</p>
 <button class="btn" id="loadChips">Load chip usage</button>
 <div id="chipTracker" class="muted" style="margin-top:10px">Not loaded yet.</div>
+</div>
+</div>
+
+<div id="h2hRace" class="subtab hidden">
+<div class="panel">
+<h2 style="margin-top:0">📈 Season Points Race</h2>
+<p class="muted" style="margin-top:0">Ranks your league by cumulative <i>season</i> points after every gameweek so far — not H2H match points. This is who's actually scoring the most overall, regardless of how the head-to-head draw has fallen.</p>
+<button class="btn" id="loadRace">Load season race</button>
+<div id="seasonRace" class="muted" style="margin-top:10px">Not loaded yet.</div>
 </div>
 </div>
 </section>
@@ -316,6 +340,11 @@ tbody tr:hover{background:#2f7dfd14}
 <p class="muted" style="margin-top:0">Best upcoming gameweeks for your chips, based on your squad's actual fixtures over the next 8 gameweeks. Analyze your team first.</p>
 <div id="chipAdvisor" class="muted">Analyze a team above to see chip timing suggestions.</div>
 </div>
+</div>
+<div class="panel" id="optimalXIPanel" style="display:none">
+<h2 style="margin-top:0">🧩 Optimal XI</h2>
+<p class="muted" style="margin-top:0">The best-scoring valid starting XI our model can build from your 15-man squad — a read on your current lineup call, not a certainty.</p>
+<div id="optimalXI" class="muted">Analyze a team above to see this.</div>
 </div>
 </section>
 
@@ -1469,6 +1498,7 @@ loadBase();
 
 /* ---- Team Analyzer ---- */
 $("teamId").value=localStorage.getItem("supreme_team_id")||"";
+$("dashTeamId").value=localStorage.getItem("supreme_team_id")||"";
 $("teamPicker").onchange=()=>{if($("teamPicker").value)$("teamId").value=$("teamPicker").value};
 $("analyzeTeam").onclick=()=>{const id=$("teamId").value.trim();if(!id){$("teamMsg").textContent="Enter a team ID or pick one from a loaded league.";return}localStorage.setItem("supreme_team_id",id);analyzeTeam(id)};
 // If a team ID was already saved from a previous visit, load it automatically
@@ -1481,6 +1511,156 @@ $("analyzeTeam").onclick=()=>{const id=$("teamId").value.trim();if(!id){$("teamM
 })();
 function percentileFor(pos,val,byPos){const arr=byPos[pos]||[];if(!arr.length)return 50;let c=0;for(const v of arr)if(v<=val)c++;return Math.round(c/arr.length*100)}
 function fixtureLabel(ease){return ease>=3.3?"good fixtures":ease<=2.3?"tough fixtures":"mixed fixtures"}
+
+/* ---------------- Optimal XI ----------------
+   Reuses the same per-player `score` already computed for the Player Board —
+   no separate model. Given a locked 15-man squad, brute-forces every legal
+   formation (1 GKP, 3-5 DEF, 2-5 MID, 1-3 FWD, 11 total) and keeps whichever
+   one maximizes summed score, taking the top-scoring players available at
+   each position. 36 formation combinations max, so this is instant. */
+function computeOptimalXI(squad){
+  const byPos={GKP:[],DEF:[],MID:[],FWD:[]};
+  squad.forEach(p=>{if(byPos[p.info.pos])byPos[p.info.pos].push(p.info)});
+  Object.values(byPos).forEach(a=>a.sort((x,y)=>y.score-x.score));
+  let best=null;
+  for(let d=3;d<=5;d++)for(let m=2;m<=5;m++)for(let f=1;f<=3;f++){
+    if(d+m+f!==10)continue;
+    if(byPos.GKP.length<1||byPos.DEF.length<d||byPos.MID.length<m||byPos.FWD.length<f)continue;
+    const xi=[...byPos.GKP.slice(0,1),...byPos.DEF.slice(0,d),...byPos.MID.slice(0,m),...byPos.FWD.slice(0,f)];
+    const total=xi.reduce((s,p)=>s+p.score,0);
+    if(!best||total>best.total)best={total,xi,formation:`${d}-${m}-${f}`};
+  }
+  return best;
+}
+function renderOptimalXI(){
+  const panel=$("optimalXIPanel");
+  if(!MY_SQUAD.length){panel.style.display="none";return}
+  panel.style.display="";
+  const best=computeOptimalXI(MY_SQUAD);
+  if(!best){$("optimalXI").innerHTML='<p class="muted">Could not build a valid XI from this squad\'s current data.</p>';return}
+  const bestIds=new Set(best.xi.map(p=>p.id));
+  const actualXI=MY_SQUAD.filter(p=>p.multiplier>0).map(p=>p.info);
+  const actualIds=new Set(actualXI.map(p=>p.id));
+  const sameXI=bestIds.size===actualIds.size&&[...bestIds].every(id=>actualIds.has(id));
+  const sortedXI=[...best.xi].sort((a,b)=>b.score-a.score);
+  const capId=sortedXI[0]?.id,viceId=sortedXI[1]?.id;
+  const rows=["GKP","DEF","MID","FWD"].flatMap(pos=>best.xi.filter(p=>p.pos===pos)).map(p=>{
+    const tag=p.id===capId?" 🅲":p.id===viceId?" 🅥":"";
+    const isNew=!actualIds.has(p.id);
+    return `<div class="plRow"><span>${esc(p.name)}${tag}${isNew?' <span class="tag" style="margin-left:4px">bench→XI</span>':""}</span><b>${p.score.toFixed(1)}</b></div>`;
+  }).join("");
+  const swaps=best.xi.filter(p=>!actualIds.has(p.id));
+  const dropped=actualXI.filter(p=>!bestIds.has(p.id));
+  const swapNote=swaps.length?`<p class="notice" style="margin-top:10px">Model would start <b>${swaps.map(p=>esc(p.name)).join(", ")}</b> over <b>${dropped.map(p=>esc(p.name)).join(", ")}</b> this gameweek.</p>`
+    :'<p class="notice" style="margin-top:10px">Matches your actual starting XI already.</p>';
+  $("optimalXI").innerHTML=`
+    <div class="grid g2" style="margin-bottom:4px">
+      <div class="stat"><small>Suggested formation</small><b>${best.formation}</b></div>
+      <div class="stat"><small>Projected score</small><b>${best.total.toFixed(1)}</b></div>
+    </div>
+    ${rows}
+    ${sameXI?'':swapNote}
+    <p class="muted" style="margin-top:8px;font-size:11px">🅲 suggested captain · 🅥 suggested vice — the two highest-scoring players in this XI.</p>
+  `;
+}
+
+/* ---------------- Personal Dashboard ----------------
+   A single-team snapshot built entirely from endpoints already used
+   elsewhere: /api/entry/:id (also used by Team Analyzer) and
+   /api/entry/:id/history (also used by the Chip Tracker/Carabao Cup). */
+async function loadDashboard(){
+  const id=$("dashTeamId").value.trim();
+  if(!validId(id)){$("dashMsg").innerHTML='<span class="error">Team ID must be numeric.</span>';return}
+  localStorage.setItem("supreme_team_id",id);
+  $("dashMsg").textContent="Loading dashboard…";$("dashResult").innerHTML="";
+  try{
+    if(!BS||!ROWS.length)await loadBase();
+    const [info,hist]=await Promise.all([getJSON(API+"/entry/"+id),getJSON(API+"/entry/"+id+"/history")]);
+    const cur=hist.current||[];
+    const last=cur[cur.length-1],prev=cur[cur.length-2];
+    if(!last)throw Error("No gameweek history yet for this team.");
+    const rankMove=prev?prev.overall_rank-last.overall_rank:0; // positive = rank improved (moved up)
+    const rankArrow=rankMove>0?`<span style="color:var(--g)">▲ ${rankMove.toLocaleString()}</span>`:rankMove<0?`<span style="color:var(--red)">▼ ${Math.abs(rankMove).toLocaleString()}</span>`:'<span class="muted">–</span>';
+    const teamName=info.name||"This team",managerName=[info.player_first_name,info.player_last_name].filter(Boolean).join(" ");
+    const value=((info.last_deadline_bank??0)+(info.last_deadline_value??0))/10;
+    const chips=hist.chips||[];
+    const remaining=Object.keys(CHIP_LABEL).filter(k=>k==="wildcard"?chips.filter(c=>c.name==="wildcard").length<2:!chips.some(c=>c.name===k)).map(k=>CHIP_LABEL[k]);
+    // Reuse the exact same optimal-XI model for a one-line captain steer,
+    // but only bother fetching this team's picks for it — no need to run
+    // the full Team Analyzer flow just for a captain suggestion.
+    let capNote="";
+    try{
+      const gw=GW+1;
+      let picksData;
+      try{picksData=await getJSON(API+`/entry/${id}/picks/${gw}`)}catch{picksData=await getJSON(API+`/entry/${id}/picks/${GW}`)}
+      const byId=new Map(ROWS.map(r=>[r.id,r]));
+      const squad=(picksData.picks||[]).map(p=>({...p,info:byId.get(p.element)})).filter(p=>p.info);
+      const best=computeOptimalXI(squad);
+      if(best){const top=[...best.xi].sort((a,b)=>b.score-a.score)[0];if(top)capNote=`<div class="stat"><small>Captain lean</small><b>${esc(top.name)}</b></div>`}
+    }catch{/* captain steer is a bonus, not core — fail quietly */}
+    const last5=cur.slice(-5);
+    const last5HTML=last5.map(g=>`<div class="stat" style="padding:10px"><small>GW${g.event}</small><b style="font-size:20px">${g.points}</b><small>rank ${g.overall_rank?.toLocaleString()??"–"}</small></div>`).join("");
+    $("dashMsg").textContent=`${teamName}${managerName?" · "+managerName:""}`;
+    $("dashResult").innerHTML=`
+      <div class="grid g4">
+        <div class="stat"><small>Overall rank</small><b>${last.overall_rank?.toLocaleString()??"–"}</b><small>${rankArrow} since last GW</small></div>
+        <div class="stat"><small>Total points</small><b>${last.total_points}</b></div>
+        <div class="stat"><small>Last GW points</small><b>${last.points}</b>${last.points_on_bench?`<small>${last.points_on_bench} left on bench</small>`:""}</div>
+        <div class="stat"><small>Team value</small><b>£${value.toFixed(1)}m</b></div>
+      </div>
+      <div class="grid g2" style="margin-top:14px">
+        ${capNote?`<div class="panel"><h3 style="margin-top:0">Next gameweek</h3><div class="grid g2">${capNote}<div class="stat"><small>Chips still available</small><b style="font-size:16px">${remaining.length?remaining.join(", "):"None"}</b></div></div></div>`:`<div class="panel"><h3 style="margin-top:0">Chips still available</h3><p>${remaining.length?remaining.join(", "):"None"}</p></div>`}
+        <div class="panel"><h3 style="margin-top:0">Last 5 gameweeks</h3><div class="grid" style="grid-template-columns:repeat(${last5.length},1fr);gap:8px">${last5HTML}</div></div>
+      </div>
+    `;
+  }catch(e){$("dashMsg").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
+}
+$("loadDashboard").onclick=loadDashboard;
+
+/* ---------------- Season Points Race ----------------
+   Reuses the same POST /api/histories batch pull as the Chip Tracker: each
+   manager's `current` array already carries a cumulative total_points per
+   gameweek, so ranking those per GW gives a season-long "race" table that's
+   independent of H2H fixture luck — someone can lead this and be mid-table
+   in the H2H standings, or vice versa. */
+async function loadSeasonRace(){
+  if(!STANDINGS.length){$("seasonRace").innerHTML='<p class="muted">Load the H2H league first.</p>';return}
+  $("seasonRace").innerHTML=`<p class="muted">Loading season histories for ${STANDINGS.length} managers…</p>`;
+  try{
+    const histories=await getJSON(API+"/histories",{method:"POST",body:JSON.stringify({entryIds:STANDINGS.map(t=>t.entry)})});
+    const events=[...new Set(Object.values(histories).flatMap(h=>(h.current||[]).map(g=>g.event)))].sort((a,b)=>a-b);
+    const recent=events.slice(-8); // keep the table readable — last 8 GWs plus current position
+    const rankAt=event=>{
+      const rows=STANDINGS.map(t=>{
+        const g=(histories[t.entry]?.current||[]).find(x=>x.event===event);
+        return {entry:t.entry,name:t.name,pts:g?g.total_points:null};
+      }).filter(r=>r.pts!=null).sort((a,b)=>b.pts-a.pts);
+      const byEntry={};rows.forEach((r,i)=>byEntry[r.entry]=i+1);
+      return byEntry;
+    };
+    const rankByEvent=Object.fromEntries(recent.map(e=>[e,rankAt(e)]));
+    const latestEvent=events[events.length-1],prevEvent=events[events.length-2];
+    const latestRank=rankByEvent[latestEvent]||rankAt(latestEvent);
+    const prevRank=prevEvent?(rankByEvent[prevEvent]||rankAt(prevEvent)):null;
+    const table=STANDINGS.map(t=>{
+      const pts=(histories[t.entry]?.current||[]).find(g=>g.event===latestEvent)?.total_points??0;
+      return {entry:t.entry,name:t.name,manager:t.manager,pts,rank:latestRank[t.entry]||99};
+    }).sort((a,b)=>a.rank-b.rank);
+    $("seasonRace").innerHTML='<div class="tableWrap"><table style="min-width:720px"><thead><tr><th>#</th><th>Team</th><th>Season pts</th><th>Trend</th></tr></thead><tbody>'
+      +table.map(r=>{
+        const prev=prevRank?prevRank[r.entry]:null;
+        const move=prev?prev-r.rank:0;
+        const arrow=move>0?'<span style="color:var(--g)">▲</span>':move<0?'<span style="color:var(--red)">▼</span>':'<span class="muted">–</span>';
+        const sparkline=recent.map(e=>{
+          const pos=(rankByEvent[e]||{})[r.entry];
+          return pos?`<span class="tag" title="GW${e}: #${pos}" style="min-width:20px;display:inline-block;text-align:center;margin-right:2px">${pos}</span>`:"";
+        }).join("");
+        return `<tr><td>${r.rank}</td><td><b>${esc(r.name)}</b><div class="muted">${esc(r.manager)}</div></td><td>${r.pts}</td><td>${arrow}${move!==0?` <span class="muted" style="font-size:10px">was ${prev}</span>`:""}<div style="margin-top:4px">${sparkline}</div></td></tr>`;
+      }).join("")
+      +`</tbody></table><p class="muted" style="padding:8px 10px;font-size:11px">Ranked by cumulative season points, most recent gameweek first. The row of numbers under Trend is each manager's rank-by-points across the last ${recent.length} gameweeks.</p></div>`;
+  }catch(e){$("seasonRace").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
+}
+$("loadRace").onclick=loadSeasonRace;
 async function analyzeTeam(id){
   if(!validId(id)){$("teamMsg").innerHTML='<span class="error">Team ID must be numeric.</span>';return}
   $("teamMsg").textContent="Analyzing team…";$("teamResult").innerHTML="";
@@ -1536,7 +1716,7 @@ async function analyzeTeam(id){
     const ownedIds=new Set(squad.map(p=>p.element));
     MY_TEAM_ID=id;MY_OWNED_IDS=ownedIds;MY_SQUAD=squad;MY_BANK=parseFloat(bank)||0;
     $("planBudget").value=Math.max(3.5,Math.min(15,MY_BANK||5)).toFixed(1);$("planBudgetLabel").textContent=$("planBudget").value;
-    renderCaptaincy();renderDifferentials();renderTransferPlan();renderChipAdvisor();
+    renderCaptaincy();renderDifferentials();renderTransferPlan();renderChipAdvisor();renderOptimalXI();
     const weakSlots=weakByScore.slice(0,2);
     const suggestions=weakSlots.map(w=>{
       const budget=w.info.price+parseFloat(bank);
