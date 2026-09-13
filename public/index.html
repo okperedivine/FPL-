@@ -402,19 +402,27 @@ function countdownParts(ms){
 function updateDeadlineDisplay(){
   const el=$("deadline");if(!el)return;
   const ev=nextDeadlineEvent();
-  if(!ev){el.innerHTML='<p class="muted" style="margin:4px 0 0">No upcoming deadline found.</p>';return}
+  if(!ev){el.innerHTML='<p class="muted" style="margin:4px 0 0">'+(BS?"No upcoming deadline found.":"Loading…")+'</p>';return}
   const ms=new Date(ev.deadline_time).getTime()-Date.now();
   const when=new Date(ev.deadline_time).toLocaleString([],{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
   const blocks=countdownParts(ms).map(([unit,val])=>`<div class="cdBlock"><b>${String(val).padStart(2,"0")}</b><small>${unit}</small></div>`).join("");
   el.innerHTML=`<div class="cdRow">${blocks}</div><p class="dcCaption">${esc(ev.name||`GW${ev.id}`)} · locks ${esc(when)}</p>`;
 }
+updateDeadlineDisplay(); // render right away instead of waiting for the first 1s tick below
 setInterval(updateDeadlineDisplay,1000);
 
 /* Deadline reminders — a real browser Notification fired 2h before whatever
    the *current* next gameweek deadline is, recomputed every time BS.events
    refreshes. Unlike a phone alarm set once for "next Saturday", this always
    tracks the actual next deadline (different day/time every gameweek)
-   without needing to be re-armed by hand.
+   without needing to be re-armed by hand — the toggle stays on and just
+   quietly re-points itself at whichever gameweek's deadline is next, firing
+   once per gameweek (REMIND_FIRED_KEY stops a duplicate ping if the timer
+   re-checks inside that same 2h window).
+   Note this is a browser Notification, not an entry in the phone's own
+   Alarms app — nothing gets left behind for you to go find and clean up
+   once it's fired; it simply stops watching this gameweek and starts
+   watching the next one.
    Limitation, stated plainly: this only fires while the tab/app is open (or
    open in the background) — a static site with no push server can't wake a
    fully closed browser the way a native app notification can. */
@@ -428,15 +436,15 @@ function renderRemindBtn(){
   const on=remindersEnabled()&&Notification.permission==="granted";
   btn.textContent=on?"Deadline reminders on":"Remind me 2h before each deadline";
   if(Notification.permission==="denied"){status.textContent="Notifications are blocked for this site in your browser settings — allow them to use this.";}
-  else if(on){const ev=nextDeadlineEvent();status.textContent=ev?`You'll get a notification ~2h before ${esc(ev.name||"GW"+ev.id)} locks. Keep this tab open (or in a background tab) for it to fire.`:"Armed — waiting on the next gameweek deadline to appear.";}
-  else{status.textContent="Off. Turning this on asks your browser for notification permission once.";}
+  else if(on){const ev=nextDeadlineEvent();status.textContent=ev?`On — you'll get a notification ~2h before ${esc(ev.name||"GW"+ev.id)} locks, and it'll automatically carry on to every gameweek after that. Keep this tab open (or in a background tab) for it to fire.`:"On — waiting on the next gameweek deadline to appear.";}
+  else{status.textContent="Off. Turning this on asks your browser for notification permission once, then stays on for every future gameweek until you switch it off.";}
 }
 $("remindBtn").onclick=async()=>{
   if(typeof Notification==="undefined")return;
   if(remindersEnabled()&&Notification.permission==="granted"){setRemindersEnabled(false);renderRemindBtn();return}
   if(Notification.permission==="denied"){renderRemindBtn();return}
   const perm=Notification.permission==="granted"?"granted":await Notification.requestPermission();
-  if(perm==="granted"){setRemindersEnabled(true);new Notification("Deadline reminders on",{body:"You'll get a heads-up 2 hours before each FPL gameweek deadline while this tab's open."})}
+  if(perm==="granted"){setRemindersEnabled(true);new Notification("Deadline reminders on",{body:"You'll get a heads-up 2 hours before every FPL gameweek deadline while this tab's open — no need to re-arm it each week."})}
   renderRemindBtn();
 };
 function checkDeadlineReminder(){
@@ -448,10 +456,11 @@ function checkDeadlineReminder(){
   if(now>=reminderAt&&now<deadline&&String(lastFired)!==String(ev.id)){
     const when=new Date(ev.deadline_time).toLocaleString([],{weekday:"short",hour:"2-digit",minute:"2-digit"});
     new Notification(`⏰ ${ev.name||"GW"+ev.id} deadline in ~2 hours`,{body:`Locks ${when} — get your transfers/captain sorted.`});
-    localStorage.setItem(REMIND_FIRED_KEY,String(ev.id));
+    localStorage.setItem(REMIND_FIRED_KEY,String(ev.id)); // marks *this* gameweek done; reminders stay on and will fire again for the next one automatically
   }
 }
 renderRemindBtn();
+checkDeadlineReminder(); // evaluate immediately on load too, not just on the next 60s tick
 setInterval(()=>{checkDeadlineReminder();if(BS)renderRemindBtn()},60*1000);
 /* Auto-refresh — the page used to fetch bootstrap/fixtures once on load and
    then go stale for as long as it stayed open. Re-pull every 5 minutes, and
