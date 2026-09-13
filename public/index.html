@@ -274,7 +274,6 @@ tbody tr:hover{background:#2f7dfd14}
 <div class="subnav">
 <button data-subtab="h2hMatches" class="active">Matches</button>
 <button data-subtab="h2hStandings">Standings</button>
-<button data-subtab="h2hRace">Season Race</button>
 </div>
 
 <div id="h2hMatches" class="subtab">
@@ -303,14 +302,6 @@ tbody tr:hover{background:#2f7dfd14}
 </div>
 </div>
 
-<div id="h2hRace" class="subtab hidden">
-<div class="panel">
-<h2 style="margin-top:0">📈 Season Points Race</h2>
-<p class="muted" style="margin-top:0">Ranks your league by cumulative <i>season</i> points after every gameweek so far — not H2H match points. This is who's actually scoring the most overall, regardless of how the head-to-head draw has fallen.</p>
-<button class="btn" id="loadRace">Load season race</button>
-<div id="seasonRace" class="muted" style="margin-top:10px">Not loaded yet.</div>
-</div>
-</div>
 </section>
 
 <section id="team" class="tab hidden">
@@ -1617,50 +1608,6 @@ async function loadDashboard(){
 }
 $("loadDashboard").onclick=loadDashboard;
 
-/* ---------------- Season Points Race ----------------
-   Reuses the same POST /api/histories batch pull as the Chip Tracker: each
-   manager's `current` array already carries a cumulative total_points per
-   gameweek, so ranking those per GW gives a season-long "race" table that's
-   independent of H2H fixture luck — someone can lead this and be mid-table
-   in the H2H standings, or vice versa. */
-async function loadSeasonRace(){
-  if(!STANDINGS.length){$("seasonRace").innerHTML='<p class="muted">Load the H2H league first.</p>';return}
-  $("seasonRace").innerHTML=`<p class="muted">Loading season histories for ${STANDINGS.length} managers…</p>`;
-  try{
-    const histories=await getJSON(API+"/histories",{method:"POST",body:JSON.stringify({entryIds:STANDINGS.map(t=>t.entry)})});
-    const events=[...new Set(Object.values(histories).flatMap(h=>(h.current||[]).map(g=>g.event)))].sort((a,b)=>a-b);
-    const recent=events.slice(-8); // keep the table readable — last 8 GWs plus current position
-    const rankAt=event=>{
-      const rows=STANDINGS.map(t=>{
-        const g=(histories[t.entry]?.current||[]).find(x=>x.event===event);
-        return {entry:t.entry,name:t.name,pts:g?g.total_points:null};
-      }).filter(r=>r.pts!=null).sort((a,b)=>b.pts-a.pts);
-      const byEntry={};rows.forEach((r,i)=>byEntry[r.entry]=i+1);
-      return byEntry;
-    };
-    const rankByEvent=Object.fromEntries(recent.map(e=>[e,rankAt(e)]));
-    const latestEvent=events[events.length-1],prevEvent=events[events.length-2];
-    const latestRank=rankByEvent[latestEvent]||rankAt(latestEvent);
-    const prevRank=prevEvent?(rankByEvent[prevEvent]||rankAt(prevEvent)):null;
-    const table=STANDINGS.map(t=>{
-      const pts=(histories[t.entry]?.current||[]).find(g=>g.event===latestEvent)?.total_points??0;
-      return {entry:t.entry,name:t.name,manager:t.manager,pts,rank:latestRank[t.entry]||99};
-    }).sort((a,b)=>a.rank-b.rank);
-    $("seasonRace").innerHTML='<div class="tableWrap"><table style="min-width:720px"><thead><tr><th>#</th><th>Team</th><th>Season pts</th><th>Trend</th></tr></thead><tbody>'
-      +table.map(r=>{
-        const prev=prevRank?prevRank[r.entry]:null;
-        const move=prev?prev-r.rank:0;
-        const arrow=move>0?'<span style="color:var(--g)">▲</span>':move<0?'<span style="color:var(--red)">▼</span>':'<span class="muted">–</span>';
-        const sparkline=recent.map(e=>{
-          const pos=(rankByEvent[e]||{})[r.entry];
-          return pos?`<span class="tag" title="GW${e}: #${pos}" style="min-width:20px;display:inline-block;text-align:center;margin-right:2px">${pos}</span>`:"";
-        }).join("");
-        return `<tr><td>${r.rank}</td><td><b>${esc(r.name)}</b><div class="muted">${esc(r.manager)}</div></td><td>${r.pts}</td><td>${arrow}${move!==0?` <span class="muted" style="font-size:10px">was ${prev}</span>`:""}<div style="margin-top:4px">${sparkline}</div></td></tr>`;
-      }).join("")
-      +`</tbody></table><p class="muted" style="padding:8px 10px;font-size:11px">Ranked by cumulative season points, most recent gameweek first. The row of numbers under Trend is each manager's rank-by-points across the last ${recent.length} gameweeks.</p></div>`;
-  }catch(e){$("seasonRace").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
-}
-$("loadRace").onclick=loadSeasonRace;
 async function analyzeTeam(id){
   if(!validId(id)){$("teamMsg").innerHTML='<span class="error">Team ID must be numeric.</span>';return}
   $("teamMsg").textContent="Analyzing team…";$("teamResult").innerHTML="";
