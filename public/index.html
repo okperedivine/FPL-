@@ -1575,6 +1575,12 @@ async function loadDashboard(){
     const teamName=info.name||"This team",managerName=[info.player_first_name,info.player_last_name].filter(Boolean).join(" ");
     const value=((info.last_deadline_bank??0)+(info.last_deadline_value??0))/10;
     const chips=hist.chips||[];
+    // Same visibility rule the app already documents for picks: FPL's public
+    // entry API only reveals a chip once its gameweek's deadline has passed
+    // (this stops rivals copying a wildcard/chip play mid-gameweek). So a
+    // chip just activated for a gameweek that hasn't locked yet won't show
+    // here until that deadline passes — that's FPL withholding it, not a
+    // bug in this reading of the data.
     const remaining=Object.keys(CHIP_LABEL).filter(k=>k==="wildcard"?chips.filter(c=>c.name==="wildcard").length<2:!chips.some(c=>c.name===k)).map(k=>CHIP_LABEL[k]);
     // Reuse the exact same optimal-XI model for a one-line captain steer,
     // but only bother fetching this team's picks for it — no need to run
@@ -1590,7 +1596,7 @@ async function loadDashboard(){
       if(best){const top=[...best.xi].sort((a,b)=>b.score-a.score)[0];if(top)capNote=`<div class="stat"><small>Captain lean</small><b>${esc(top.name)}</b></div>`}
     }catch{/* captain steer is a bonus, not core — fail quietly */}
     const last5=cur.slice(-5);
-    const last5HTML=last5.map(g=>`<div class="stat" style="padding:10px"><small>GW${g.event}</small><b style="font-size:20px">${g.points}</b><small>rank ${g.overall_rank?.toLocaleString()??"–"}</small></div>`).join("");
+    const last5HTML=last5.map(g=>`<div class="stat" style="padding:10px;min-width:96px;flex:0 0 auto"><small>GW${g.event}</small><b style="font-size:20px">${g.points}</b><small>rank ${g.overall_rank?.toLocaleString()??"–"}</small></div>`).join("");
     $("dashMsg").textContent=`${teamName}${managerName?" · "+managerName:""}`;
     $("dashResult").innerHTML=`
       <div class="grid g4">
@@ -1601,8 +1607,9 @@ async function loadDashboard(){
       </div>
       <div class="grid g2" style="margin-top:14px">
         ${capNote?`<div class="panel"><h3 style="margin-top:0">Next gameweek</h3><div class="grid g2">${capNote}<div class="stat"><small>Chips still available</small><b style="font-size:16px">${remaining.length?remaining.join(", "):"None"}</b></div></div></div>`:`<div class="panel"><h3 style="margin-top:0">Chips still available</h3><p>${remaining.length?remaining.join(", "):"None"}</p></div>`}
-        <div class="panel"><h3 style="margin-top:0">Last 5 gameweeks</h3><div class="grid" style="grid-template-columns:repeat(${last5.length},1fr);gap:8px">${last5HTML}</div></div>
+        <div class="panel"><h3 style="margin-top:0">Last 5 gameweeks</h3><div style="display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px">${last5HTML}</div></div>
       </div>
+      <p class="muted" style="font-size:11px;margin-top:10px">A chip played for a gameweek that hasn't locked yet won't show here until that gameweek's deadline passes — FPL withholds it until then to stop other managers copying a last-minute chip play, the same rule that applies to picks in Team Analyzer.</p>
     `;
   }catch(e){$("dashMsg").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
 }
