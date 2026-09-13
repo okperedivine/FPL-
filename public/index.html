@@ -444,7 +444,15 @@ $("remindBtn").onclick=async()=>{
   if(remindersEnabled()&&Notification.permission==="granted"){setRemindersEnabled(false);renderRemindBtn();return}
   if(Notification.permission==="denied"){renderRemindBtn();return}
   const perm=Notification.permission==="granted"?"granted":await Notification.requestPermission();
-  if(perm==="granted"){setRemindersEnabled(true);new Notification("Deadline reminders on",{body:"You'll get a heads-up 2 hours before every FPL gameweek deadline while this tab's open — no need to re-arm it each week."})}
+  if(perm==="granted"){
+    setRemindersEnabled(true);
+    // Some mobile browsers (notably Chrome/Android) throw here — the
+    // Notification constructor is blocked outside a service worker there.
+    // Guard it so that failure can't skip the renderRemindBtn() below and
+    // leave the button showing "off" even though we just turned it on.
+    try{new Notification("Deadline reminders on",{body:"You'll get a heads-up 2 hours before every FPL gameweek deadline while this tab's open — no need to re-arm it each week."})}
+    catch(e){}
+  }
   renderRemindBtn();
 };
 function checkDeadlineReminder(){
@@ -455,8 +463,9 @@ function checkDeadlineReminder(){
   const lastFired=localStorage.getItem(REMIND_FIRED_KEY);
   if(now>=reminderAt&&now<deadline&&String(lastFired)!==String(ev.id)){
     const when=new Date(ev.deadline_time).toLocaleString([],{weekday:"short",hour:"2-digit",minute:"2-digit"});
-    new Notification(`⏰ ${ev.name||"GW"+ev.id} deadline in ~2 hours`,{body:`Locks ${when} — get your transfers/captain sorted.`});
-    localStorage.setItem(REMIND_FIRED_KEY,String(ev.id)); // marks *this* gameweek done; reminders stay on and will fire again for the next one automatically
+    try{new Notification(`⏰ ${ev.name||"GW"+ev.id} deadline in ~2 hours`,{body:`Locks ${when} — get your transfers/captain sorted.`})}
+    catch(e){}
+    localStorage.setItem(REMIND_FIRED_KEY,String(ev.id)); // marks *this* gameweek done regardless of whether the notification itself displayed; reminders stay on and will fire again for the next one automatically
   }
 }
 renderRemindBtn();
