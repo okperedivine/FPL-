@@ -10,7 +10,11 @@
 <style>
 *{box-sizing:border-box}
 html{overflow-x:hidden;max-width:100vw;scrollbar-color:#35447a #111827}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',Arial,sans-serif;overflow-x:hidden;max-width:100vw;overscroll-behavior-x:none;line-height:1.5}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',Arial,sans-serif;overflow-x:hidden;max-width:100vw;overscroll-behavior-x:none;line-height:1.5;position:relative}
+/* A faint grain so large dark panels read as textured material rather than
+   flat vector fills — subtle enough to be felt, not seen outright. */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.035;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.wrap{position:relative;z-index:1}
 :root{--bg:#0a0e1a;--g:#22c55e;--red:#f6465d;--gold:#fbbf24;--primary:#2f7dfd;--primary2:#ec4899;--info:#38bdf8;--p:#141a30;--p2:#0d0f1c;--line:#26304f;--muted:#98a2c4;--ink:#eef1fb;--radius:14px;--disp:'Barlow Condensed',Inter,Arial,sans-serif}
 ::selection{background:var(--primary);color:#fff}
 a{color:var(--primary2)}
@@ -44,9 +48,10 @@ a{color:var(--primary2)}
 
 .nav{position:sticky;top:0;z-index:20;display:flex;gap:22px;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;margin:10px -2px 22px;padding:0 2px;background:linear-gradient(#0a0e1af2 78%,#0a0e1a00);border-bottom:1px solid var(--line);scrollbar-width:none}
 .nav::-webkit-scrollbar{display:none}
-.nav button{flex:none;border:0;border-bottom:3px solid transparent;background:none;color:var(--muted);border-radius:0;padding:14px 2px;font-weight:600;font-size:15px;cursor:pointer;transition:color .15s,border-color .15s;white-space:nowrap}
+.nav button{position:relative;flex:none;border:0;background:none;color:var(--muted);border-radius:0;padding:14px 2px;font-weight:600;font-size:15px;cursor:pointer;transition:color .15s;white-space:nowrap}
 .nav button:hover{color:#e4ecfb}
-.nav button.active{color:#fff;border-bottom-color:var(--primary)}
+.nav button.active{color:#fff}
+.nav button.active::after{content:"";position:absolute;left:2px;right:2px;bottom:-1px;height:3px;border-radius:3px;background:linear-gradient(90deg,var(--primary),var(--primary2))}
 /* H2H Analyst's inner Matches/Standings switch — a filled two-up segmented
    control (rather than the main nav's underline tabs), so it reads as an
    in-page toggle, not a second row of navigation. */
@@ -187,7 +192,7 @@ tbody tr:hover{background:#2f7dfd14}
 <div class="dcHead"><span class="dcIcon">⏱</span><span>Next deadline</span></div>
 <div id="deadline"></div>
 <div class="dcFoot">
-<button id="remindBtn" class="btn primary">🔔 Remind me 2h before</button>
+<button id="remindBtn" class="btn primary">Remind me 2h before</button>
 <div id="remindStatus" class="muted" style="font-size:11px"></div>
 </div>
 </div>
@@ -401,7 +406,7 @@ function renderRemindBtn(){
   const btn=$("remindBtn"),status=$("remindStatus");
   if(!supported){btn.style.display="none";status.textContent="Notifications aren't supported in this browser.";return}
   const on=remindersEnabled()&&Notification.permission==="granted";
-  btn.textContent=on?"🔔 Deadline reminders ON":"🔕 Remind me 2h before each deadline";
+  btn.textContent=on?"Deadline reminders on":"Remind me 2h before each deadline";
   if(Notification.permission==="denied"){status.textContent="Notifications are blocked for this site in your browser settings — allow them to use this.";}
   else if(on){const ev=nextDeadlineEvent();status.textContent=ev?`You'll get a notification ~2h before ${esc(ev.name||"GW"+ev.id)} locks. Keep this tab open (or in a background tab) for it to fire.`:"Armed — waiting on the next gameweek deadline to appear.";}
   else{status.textContent="Off. Turning this on asks your browser for notification permission once.";}
@@ -765,7 +770,7 @@ async function loadBase(){
     checkDeadlineReminder();renderRemindBtn();
     if(STANDINGS.length){renderStandings();renderLiveMatches();}
   }catch(e){
-    if(!isRefresh)$("boardNotice").innerHTML=`<span class="error">${esc(e.message)}</span><br>Make sure this app is running from its Node server, not as a downloaded HTML file.`;
+    if(!isRefresh)$("boardNotice").innerHTML=`<span class="error">${esc(e.message)}</span><br>Couldn't reach live FPL data — try refreshing in a moment.`;
   }
 }
 $("ngw").oninput=e=>{nGws=+e.target.value;$("ngwLabel").textContent=nGws;if(BS){ROWS=BS.elements.filter(p=>POS[p.element_type]).map(p=>score(p,FXIDX,GW+1,nGws,FORMIDX));renderPlayers()}};
@@ -795,7 +800,7 @@ function normalizeMatches(d){
 $("loadLeague").onclick=loadLeague;
 async function loadLeague(){
   const id=$("leagueId").value.trim();if(!id){$("leagueMsg").textContent="Enter a league ID.";return}
-  localStorage.setItem("supreme_h2h_id",id);$("leagueMsg").textContent="Loading league through backend…";
+  localStorage.setItem("supreme_h2h_id",id);$("leagueMsg").textContent="Loading league…";
   try{
     LEAGUE=await getJSON(API+"/h2h/"+encodeURIComponent(id));STANDINGS=normalizeStandings(LEAGUE);MATCHES=normalizeMatches(LEAGUE);FORM_CACHE=null;SQUAD_CACHE=null;SQUAD_CACHE_GW=null;
     if(!STANDINGS.length)throw Error("No teams returned. Check the H2H league ID.");
@@ -1478,7 +1483,7 @@ function percentileFor(pos,val,byPos){const arr=byPos[pos]||[];if(!arr.length)re
 function fixtureLabel(ease){return ease>=3.3?"good fixtures":ease<=2.3?"tough fixtures":"mixed fixtures"}
 async function analyzeTeam(id){
   if(!validId(id)){$("teamMsg").innerHTML='<span class="error">Team ID must be numeric.</span>';return}
-  $("teamMsg").textContent="Analyzing team through backend…";$("teamResult").innerHTML="";
+  $("teamMsg").textContent="Analyzing team…";$("teamResult").innerHTML="";
   try{
     if(!BS||!ROWS.length) await loadBase();
     // FPL only exposes a manager's picks for a gameweek once that gameweek's
