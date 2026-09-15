@@ -7,7 +7,7 @@
 <title>Supreme FPL Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box}
 html{overflow-x:hidden;max-width:100vw;scrollbar-color:#35447a #111827}
@@ -16,7 +16,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',Arial,sa
    flat vector fills — subtle enough to be felt, not seen outright. */
 body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.035;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 .wrap{position:relative;z-index:1}
-:root{--bg:#0a0e1a;--g:#22c55e;--red:#f6465d;--gold:#fbbf24;--primary:#2f7dfd;--primary2:#d1487e;--info:#38bdf8;--p:#141a30;--p2:#0d0f1c;--line:#26304f;--muted:#98a2c4;--ink:#eef1fb;--radius:16px;--disp:'Fraunces',Georgia,serif;
+:root{--bg:#0a0e1a;--g:#22c55e;--red:#f6465d;--gold:#fbbf24;--primary:#2f7dfd;--primary2:#d1487e;--info:#38bdf8;--p:#141a30;--p2:#0d0f1c;--line:#26304f;--muted:#98a2c4;--ink:#eef1fb;--radius:16px;--disp:'Space Grotesk',Inter,Arial,sans-serif;
   --surf1:#111827;--surf2:#0c1020;--surf-hover:#1a2440;--line-hover:#35447a;--hero-grad-start:#f3f7ff;--score-c:#93c5fd;--error-c:#ffb4bd;--loading-c:#b7c2e8;
   --ink-on-gold:#ffffff;--chip-bg:#141a30;--chip-border:#26304f;--chip-text:#cfe0fa;--chip-muted:#98a2c4;
   --glassBg1:rgba(20,26,48,.26);--glassBg2:rgba(13,15,28,.15);--glassBorder:rgba(220,228,250,.12);--glassNav:rgba(20,26,48,.32)}
@@ -297,8 +297,11 @@ tbody tr:hover{background:#2f7dfd14}
 
 <div id="h2hMatches" class="subtab">
 <div class="panel">
-<h2 style="margin-top:0">Live GW Matches</h2>
-<p class="muted" style="margin-top:0">This gameweek's H2H fixtures with a live score computed from each squad's actual picks — tap a match to see both line-ups' live points. Recalculates as FPL updates player stats.</p>
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+<h2 style="margin:0" id="matchesHeading">Live GW Matches</h2>
+<select id="matchGW" style="max-width:160px"></select>
+</div>
+<p class="muted" style="margin-top:6px" id="matchesSub">This gameweek's H2H fixtures with a live score computed from each squad's actual picks — tap a match to see both line-ups' live points. Recalculates as FPL updates player stats.</p>
 <div id="liveMatches" class="muted">Load the H2H league first.</div>
 </div>
 </div>
@@ -411,6 +414,12 @@ async function getJSON(url,options={}){
   }finally{clearTimeout(tm)}
 }
 function currentGW(){return BS?.events?.find(e=>e.is_current)?.id||Math.max((BS?.events?.find(e=>e.is_next)?.id||2)-1,1)}
+/* Whether a gameweek is properly done — not just "not current anymore", but
+   FPL has finished it AND confirmed bonus points (data_checked). Standings
+   use this to stop showing a live/provisional bracket next to a team's
+   points once a gameweek is truly settled, rather than relying on the
+   is_current handoff alone. */
+function gwFinished(gw){const ev=BS?.events?.find(e=>e.id===gw);return !!(ev&&ev.finished&&ev.data_checked)}
 /* Deadline countdown — ticks every second off the next unfired deadline in
    BS.events, so it stays accurate between the periodic data refreshes below
    without needing its own network call. */
@@ -913,7 +922,7 @@ async function loadLeague(){
     if(!STANDINGS.length)throw Error("No teams returned. Check the H2H league ID.");
     $("leagueMsg").textContent=`Loaded ${LEAGUE.league?.name||"H2H league"} · ${STANDINGS.length} teams · ${LEAGUE.pagesFetched||1} match page(s)`;
     $("chipTracker").innerHTML='<p class="muted">Not loaded yet — click "Load chip usage".</p>';
-    renderStandings();renderCup();renderLiveMatches();
+    populateMatchGWSelect();renderStandings();renderCup();renderLiveMatches();
   }catch(e){$("leagueMsg").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
 }
 /* Mini-league chip tracker: reuses the same /api/histories batch endpoint
@@ -952,21 +961,25 @@ function currentMatch(entry){
   const gw=GW||1;
   return MATCHES.find(m=>m.event===gw&&(String(m.a)===String(entry)||String(m.b)===String(entry)))||null;
 }
-/* Standings table now shows a *provisional* position: each team's official
-   league total plus 3/1/0 points for how their in-progress GW match stands
-   right now (using the same live squad score as the Live GW Matches panel).
-   Rows are ordered by that provisional total, and the arrow next to the
-   position compares it to the official (pre-GW) rank — so it keeps moving
-   as player scores update, and settles once FPL confirms the gameweek. */
+/* Standings table shows a *provisional* position while a gameweek is still
+   in progress: each team's official league total plus 3/1/0 points for how
+   their in-progress GW match stands right now (using the same live squad
+   score as the Live GW Matches panel). Once FPL has finished the gameweek
+   AND confirmed bonus points (gwFinished), that live bracket goes away —
+   the official total (which by then already includes the settled result)
+   becomes the only number shown, and the GW score column shows the
+   confirmed final score instead of a recomputed live one. */
 async function renderStandings(){
   const gw=GW||1;
+  const finished=gwFinished(gw);
   STANDINGS.sort((a,b)=>a.rank-b.rank);
   let squads={};
-  if(STANDINGS.length){ try{ squads=await getSquads(); }catch{ squads={}; } }
+  if(!finished&&STANDINGS.length){ try{ squads=await getSquads(); }catch{ squads={}; } }
   const liveScoreOf=entry=>{
-    if(squads[entry]&&squads[entry].length) return squadLiveTotal(squads[entry]);
     const cm=currentMatch(entry);
     if(!cm) return null;
+    if(finished) return String(cm.a)===String(entry)?cm.ap:cm.bp;
+    if(squads[entry]&&squads[entry].length) return squadLiveTotal(squads[entry]);
     return String(cm.a)===String(entry)?cm.ap:cm.bp;
   };
   const rows=STANDINGS.map(t=>{
@@ -975,7 +988,7 @@ async function renderStandings(){
     if(cm){
       oppId=String(cm.a)===String(t.entry)?cm.b:cm.a;
       myLive=liveScoreOf(t.entry);oppLive=liveScoreOf(oppId);
-      if(myLive!=null&&oppLive!=null) provTotal=t.total+(myLive>oppLive?3:myLive===oppLive?1:0);
+      if(!finished&&myLive!=null&&oppLive!=null) provTotal=t.total+(myLive>oppLive?3:myLive===oppLive?1:0);
     }
     return {...t,provTotal,oppId,myLive,oppLive};
   });
@@ -995,7 +1008,7 @@ async function renderStandings(){
       }
     }
     return `<tr><td>${posCell}</td><td><b>${esc(t.name)}</b><div class="muted">${esc(t.manager)}</div></td><td>${ptsCell}</td><td>${t.wins}-${t.draws}-${t.losses}</td><td>${oppCell}</td><td>${scoreCell}</td></tr>`;
-  }).join("")+'</tbody></table><p class="muted" style="padding:8px 10px;font-size:11px">Position and points include this gameweek\'s in-progress result — the arrow shows movement from the official pre-gameweek standings, and keeps updating until FPL confirms final scores.</p></div>';
+  }).join("")+'</tbody></table><p class="muted" style="padding:8px 10px;font-size:11px">'+(finished?`GW${gw} is final — standings reflect FPL's confirmed result.`:`Position and points include this gameweek's in-progress result — the arrow shows movement from the official pre-gameweek standings, and settles once FPL confirms final scores.`)+'</p></div>';
   const picker=$("teamPicker");
   picker.innerHTML='<option value="">— pick a team —</option>'+STANDINGS.map(t=>`<option value="${t.entry}">${esc(t.name)}</option>`).join("");
 }
@@ -1025,18 +1038,48 @@ function squadRowsHTML(picks){
     return `<div class="plRow${p.multiplier>0?"":" bench"}"><span>${esc(el?.web_name||"—")}${tag}</span><b>${pickLivePoints(p)}</b></div>`;
   }).join("");
 }
-/* Live GW Matches panel: one card per current-GW H2H fixture, live score
-   from each squad's actual picks. Tapping a card expands both line-ups.
-   Fetches picks once per GW (cached), then just re-renders on every
-   refresh — the live points themselves come from the bootstrap data that
-   already refreshes every few minutes, so no extra network calls are
-   needed to pick up new player scores. */
-async function renderLiveMatches(){
+/* Matches panel: one card per H2H fixture for whichever gameweek is
+   selected in the dropdown (defaults to the current one). For the
+   in-progress current gameweek, scores are computed live from each squad's
+   actual picks and a tap expands both line-ups. For a past — or a
+   finished-but-still-"current" — gameweek, FPL's own confirmed match
+   score is used directly instead: it's already final, so there's no need
+   to re-fetch and recompute every squad's picks. */
+function populateMatchGWSelect(){
+  const sel=$("matchGW");if(!sel)return;
+  const max=GW||1,opts=[];
+  for(let g=1;g<=max;g++){
+    const label=g===GW?(gwFinished(g)?`GW${g} (Final)`:`GW${g} (Live)`):`GW${g}`;
+    opts.push(`<option value="${g}"${g===GW?" selected":""}>${label}</option>`);
+  }
+  sel.innerHTML=opts.join("");
+}
+async function renderLiveMatches(gw){
+  gw=gw||GW||1;
   const el=$("liveMatches");
   if(!STANDINGS.length){el.innerHTML='<p class="muted">Load the H2H league first.</p>';return}
-  const gw=GW||1;
   const fixtures=MATCHES.filter(m=>m.event===gw);
   if(!fixtures.length){el.innerHTML=`<p class="muted">No H2H fixtures found for GW${gw}.</p>`;return}
+  const isLiveRound=gw===GW&&!gwFinished(gw);
+  $("matchesHeading").textContent=isLiveRound?"Live GW Matches":`GW${gw} Matches`;
+  $("matchesSub").textContent=isLiveRound
+    ?"This gameweek's H2H fixtures with a live score computed from each squad's actual picks — tap a match to see both line-ups' live points. Recalculates as FPL updates player stats."
+    :`GW${gw} is final — scores below are FPL's confirmed result.`;
+  if(!isLiveRound){
+    el.innerHTML=fixtures.map(m=>{
+      const aName=teamNameByEntry(m.a),bName=teamNameByEntry(m.b);
+      const aColor=m.ap>m.bp?"var(--g)":m.ap<m.bp?"var(--red)":"inherit";
+      const bColor=m.bp>m.ap?"var(--g)":m.bp<m.ap?"var(--red)":"inherit";
+      return `<div class="liveMatch" style="cursor:default">
+        <div class="lmHead">
+          <div class="lmTeam"><b>${esc(aName)}</b></div>
+          <div class="lmScore"><b style="color:${aColor}">${m.ap}</b> <span class="muted">-</span> <b style="color:${bColor}">${m.bp}</b></div>
+          <div class="lmTeam" style="text-align:right"><b>${esc(bName)}</b></div>
+        </div>
+      </div>`;
+    }).join("");
+    return;
+  }
   const openIds=new Set([...el.querySelectorAll(".liveMatch.open")].map(x=>x.dataset.mid));
   if(!openIds.size) el.innerHTML='<p class="muted">Loading live squads…</p>';
   try{
@@ -1066,6 +1109,7 @@ async function renderLiveMatches(){
     });
   }catch(e){el.innerHTML='<span class="error">Could not load live squads: '+esc(e.message)+'</span>'}
 }
+$("matchGW").onchange=()=>renderLiveMatches(parseInt($("matchGW").value,10));
 function preGW(gw){
   const base=STANDINGS.map(t=>({...t,total:0,wins:0,draws:0,losses:0})),m=Object.fromEntries(base.map(t=>[String(t.entry),t]));
   MATCHES.filter(x=>x.event<gw).forEach(x=>{const a=m[String(x.a)],b=m[String(x.b)];if(!a||!b)return;if(x.ap>x.bp){a.total+=3;a.wins++ ;b.losses++}else if(x.bp>x.ap){b.total+=3;b.wins++;a.losses++}else{a.total++;b.total++;a.draws++;b.draws++}});
