@@ -1,0 +1,1890 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem("supreme_theme");if(t==="light")document.documentElement.setAttribute("data-theme","light")}catch(e){}})()</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no">
+<title>Supreme FPL Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html{overflow-x:hidden;max-width:100vw;scrollbar-color:#35447a #111827}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',Arial,sans-serif;overflow-x:hidden;max-width:100vw;overscroll-behavior-x:none;line-height:1.5;position:relative}
+/* A faint grain so large dark panels read as textured material rather than
+   flat vector fills — subtle enough to be felt, not seen outright. */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.035;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.wrap{position:relative;z-index:1}
+:root{--bg:#0a0e1a;--g:#22c55e;--red:#f6465d;--gold:#fbbf24;--primary:#2f7dfd;--primary2:#d1487e;--info:#38bdf8;--p:#141a30;--p2:#0d0f1c;--line:#26304f;--muted:#98a2c4;--ink:#eef1fb;--radius:16px;--disp:'Space Grotesk',Inter,Arial,sans-serif;
+  --surf1:#111827;--surf2:#0c1020;--surf-hover:#1a2440;--line-hover:#35447a;--hero-grad-start:#f3f7ff;--score-c:#93c5fd;--error-c:#ffb4bd;--loading-c:#b7c2e8;
+  --ink-on-gold:#ffffff;--chip-bg:#141a30;--chip-border:#26304f;--chip-text:#cfe0fa;--chip-muted:#98a2c4;
+  --glassBg1:rgba(20,26,48,.26);--glassBg2:rgba(13,15,28,.15);--glassBorder:rgba(220,228,250,.12);--glassNav:rgba(20,26,48,.32)}
+/* Light theme — same accent palette (primary/primary2/g/red/gold/info stay
+   constant across both themes for brand consistency), only the neutrals
+   (page bg, surfaces, borders, text) swap. Toggled via data-theme on
+   <html>, set as early as possible (see the tiny inline script right
+   after <head> opens) so there's no flash of the wrong theme on load. */
+[data-theme="light"]{--bg:#eef1f8;--ink:#161b2e;--muted:#5b6787;--line:#dde3f0;--line-hover:#b9c4e2;
+  --p:#ffffff;--p2:#f6f8fc;--surf1:#ffffff;--surf2:#eef1f8;--surf-hover:#e3e9f7;
+  --hero-grad-start:#1a2340;--score-c:#1d4ed8;--error-c:#c81e3a;--loading-c:#4a5a8f;
+  --glassBg1:rgba(255,255,255,.3);--glassBg2:rgba(255,255,255,.16);--glassBorder:rgba(20,30,60,.1);--glassNav:rgba(255,255,255,.36)}
+::selection{background:var(--primary);color:var(--ink-on-gold)}
+a{color:var(--primary2)}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.001s!important;transition-duration:.001s!important}}
+
+.wrap{width:min(1400px,94%);margin:auto}
+.hero{padding:38px 0 22px;position:relative;overflow:hidden}
+/* A stylised pitch corner — concentric arcs + a halfway line radiating from
+   the top-right — rather than a generic blurred gradient blob. Grounds the
+   hero in the subject (football) instead of decorating it with abstraction. */
+.hero::before{content:"";position:absolute;top:-140px;right:-100px;width:480px;height:480px;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(closest-side,#2f7dfd22,transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='480'%3E%3Ccircle cx='480' cy='0' r='130' fill='none' stroke='%232f7dfd' stroke-width='1.5' opacity='.32'/%3E%3Ccircle cx='480' cy='0' r='230' fill='none' stroke='%232f7dfd' stroke-width='1.5' opacity='.16'/%3E%3Cline x1='0' y1='130' x2='480' y2='130' stroke='%232f7dfd' stroke-width='1.5' opacity='.22'/%3E%3C/svg%3E")}
+.hero>*{position:relative;z-index:1}
+.eyebrow{display:inline-flex;align-items:center;gap:7px;background:var(--chip-bg);border:1px solid var(--chip-border);color:var(--chip-text);font-size:12px;font-weight:600;padding:5px 12px 5px 9px;border-radius:999px}
+.hero h1{font-family:var(--disp);font-weight:700;font-size:clamp(40px,6.6vw,72px);line-height:1;letter-spacing:-.01em;margin:16px 0 12px;background:linear-gradient(100deg,var(--hero-grad-start) 6%,var(--primary) 38%,#8b6cf0 68%,var(--primary2) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--muted);line-height:1.65;max-width:600px;font-size:15.5px}
+/* Deadline countdown card — a small scoreboard (D/H/M blocks) rather than
+   a line of status text, so the number people actually care about (time
+   left) is the loudest thing in the hero. Deliberately stays dark in both
+   themes (a fixed "scoreboard" look), so its muted labels are hardcoded
+   to a light-on-dark tone rather than the themed --muted var. */
+.deadlineCard{margin-top:18px;display:inline-block;background:var(--glassNav);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:1px solid var(--glassBorder);border-radius:14px;padding:14px 18px}
+.dcHead{display:flex;align-items:center;gap:6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--chip-muted);font-weight:700;margin-bottom:9px}
+.cdRow{display:flex;gap:8px;flex-wrap:wrap}
+.cdBlock{background:#0c1020;border:1px solid var(--chip-border);border-radius:10px;padding:7px 13px;text-align:center;min-width:52px}
+.cdBlock b{font-family:var(--disp);font-size:25px;font-weight:700;display:block;line-height:1;background:linear-gradient(140deg,var(--primary),var(--primary2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.cdBlock small{font-size:9.5px;color:var(--chip-muted);text-transform:uppercase;letter-spacing:.05em}
+.dcCaption{margin:10px 0 0;font-size:12px;color:var(--chip-muted)}
+.dcFoot{margin-top:14px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+
+.nav{position:sticky;top:12px;z-index:20;display:flex;gap:4px;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;margin:18px 0 26px;padding:6px;background:var(--glassNav);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border:1px solid var(--glassBorder);border-radius:16px;scrollbar-width:none;box-shadow:0 6px 24px #00000022,inset 0 1px 0 rgba(255,255,255,.06)}
+.nav::-webkit-scrollbar{display:none}
+.nav button{position:relative;flex:none;display:inline-flex;align-items:center;gap:7px;border:0;background:none;color:var(--muted);border-radius:11px;padding:11px 16px;font-weight:600;font-size:14.5px;cursor:pointer;transition:color .15s,background .15s;white-space:nowrap}
+.nav button:hover{color:var(--ink);background:var(--surf-hover)}
+.nav button .navIcon{font-size:14px;opacity:.9}
+.nav button.active{color:var(--ink-on-gold);background:linear-gradient(140deg,var(--primary),#1c4fd6);font-weight:700;box-shadow:0 4px 14px #2f7dfd4d}
+/* H2H Analyst's inner Matches/Standings switch — a filled two-up segmented
+   control (rather than the main nav's underline tabs), so it reads as an
+   in-page toggle, not a second row of navigation. */
+.subnav{display:flex;gap:4px;background:var(--glassNav);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border:1px solid var(--glassBorder);border-radius:14px;padding:5px;margin:4px 0 18px}
+.subnav button{flex:1;border:0;background:none;border-radius:10px;color:var(--muted);font-weight:600;font-size:14.5px;padding:12px 10px;cursor:pointer;transition:background .15s,color .15s}
+.subnav button:hover:not(.active){color:var(--ink)}
+.subnav button.active{background:linear-gradient(140deg,var(--primary),#1c4fd6);color:var(--ink-on-gold);box-shadow:0 4px 14px #2f7dfd4d}
+.btn,.pill{border:1px solid var(--line);background:var(--surf1);color:var(--ink);border-radius:10px;padding:10px 14px;font-weight:600;font-size:13.5px;cursor:pointer;transition:background .15s,border-color .15s,transform .1s}
+.btn:hover,.pill:hover{border-color:var(--line-hover);background:var(--surf-hover)}
+.btn:active,.pill:active{transform:scale(.97)}
+.btn.primary,.pill.active{background:linear-gradient(140deg,var(--primary),#1c4fd6);border-color:var(--primary);color:var(--ink-on-gold)}
+.btn.gold{background:#5c3d14;border-color:#a9772e;color:#fff}
+
+.panel{position:relative;overflow:hidden;background:linear-gradient(145deg,var(--glassBg1),var(--glassBg2));backdrop-filter:blur(28px) saturate(160%);-webkit-backdrop-filter:blur(28px) saturate(160%);border:1px solid var(--glassBorder);border-radius:var(--radius);padding:26px;margin-bottom:20px;box-shadow:0 8px 28px #00000022,inset 0 1px 0 rgba(255,255,255,.06);min-width:0}
+.panel::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--primary),var(--primary2))}
+.panel h2,.panel h3{font-family:var(--disp);font-weight:700;letter-spacing:0}
+.panel h2{font-size:23px;margin-bottom:10px}.panel h3{font-size:17px;margin-bottom:8px}
+.panel>p.muted:first-of-type{margin-top:0}
+.grid{display:grid;gap:16px}.g2{grid-template-columns:1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}.g5{grid-template-columns:repeat(5,1fr)}@media(max-width:850px){.g2,.g4,.g5{grid-template-columns:1fr}}
+.controls{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}@media(max-width:900px){.controls{grid-template-columns:1fr 1fr}}@media(max-width:550px){.controls{grid-template-columns:1fr}}
+label{display:block;color:var(--muted);font-size:12px;font-weight:600;margin-bottom:6px}
+input{width:100%;background:var(--surf2);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:11px;font-family:inherit;transition:border-color .15s}
+input:focus{border-color:var(--primary)}
+input[type=range]{-webkit-appearance:none;appearance:none;height:6px;padding:0;background:#1c2418;border:1px solid var(--line);border-radius:99px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--primary);border:3px solid var(--bg);cursor:pointer;box-shadow:0 2px 6px #0007}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--primary);border:3px solid var(--bg);cursor:pointer}
+select{background:var(--surf2);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:11px;font-family:inherit}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+
+.tableWrap{overflow:auto;border:1px solid var(--line);border-radius:12px;min-width:0;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+table{width:100%;border-collapse:collapse;min-width:850px}
+th,td{padding:11px 10px;border-bottom:1px solid #26304f55;text-align:left;font-size:13px}
+th{font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);background:var(--p);position:sticky;top:0;z-index:1}
+tbody tr{transition:background .12s}
+tbody tr:nth-child(even){background:#ffffff03}
+tbody tr:hover{background:#2f7dfd14}
+.muted{color:var(--muted)}.score{color:var(--score-c);font-weight:800}
+.tag{background:#1c2a4a;color:#cfe0fa;padding:4px 8px;border-radius:99px;font-size:10px;font-weight:700}
+
+.notice{padding:12px 14px;border:1px solid var(--line);background:var(--surf2);border-radius:10px;color:var(--ink);font-size:13px;line-height:1.5}
+.stat{border:1px solid var(--line);border-radius:12px;padding:15px;background:#ffffff04}
+.stat small{color:var(--muted)}.stat b{font-family:var(--disp);display:block;font-size:30px;font-weight:700;margin-top:4px}
+
+.fxrow{display:flex;gap:4px;flex-wrap:wrap;max-width:220px}.fx{font-size:10px;font-weight:800;padding:3px 6px;border-radius:6px;color:#0a0e1a;white-space:nowrap}.fx1,.fx2{background:var(--g)}.fx3{background:var(--gold)}.fx4,.fx5{background:var(--red)}.fx-blank{background:var(--chip-bg);color:var(--chip-text)}
+
+.chat{height:420px;overflow:auto;display:flex;flex-direction:column;gap:9px}
+.bubble{padding:11px 13px;border-radius:13px;white-space:pre-wrap;line-height:1.45;max-width:92%}
+.bot{background:var(--p);border:1px solid var(--line)}.user{background:linear-gradient(140deg,var(--primary),#1c4fd6);color:var(--ink-on-gold);align-self:flex-end}
+.quick{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.quick button{border:1px solid var(--line);background:var(--surf1);color:var(--muted);border-radius:999px;padding:7px 10px;font-size:11px;cursor:pointer;transition:background .15s}
+.quick button:hover{background:var(--surf-hover)}
+.chatbar{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:10px}
+
+.bracket{overflow:auto;overscroll-behavior-x:contain}
+.roundTitle{text-align:center;color:var(--gold);font-size:11px;font-weight:900;text-transform:uppercase;margin-bottom:10px}
+.match{background:var(--surf1);border:1px solid var(--line);border-radius:11px;overflow:hidden;position:relative}
+.match.tbd{background:#11182788;border-style:dashed;border-color:#2c3a63;opacity:.6}
+.row{display:flex;justify-content:space-between;padding:9px;border-bottom:1px solid #26304f66;font-size:12px}
+.row:last-child{border:0}
+.win{background:#22c55e1a;color:var(--g);font-weight:900}
+.champ{text-align:center;border:1px solid #a9772e;background:#211708;border-radius:15px;padding:20px;color:#eef1fb}
+.trophy{font-size:42px}
+/* "VS" divider pinned to the seam between the two rows of a match card, so
+   every tie reads like a real head-to-head fixture, not a two-line list. */
+.vsdiv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--chip-bg);border:1px solid var(--chip-border);color:var(--chip-muted);font-size:8px;font-weight:900;padding:1px 5px;border-radius:99px;letter-spacing:.06em;z-index:2}
+/* Round 1 sits on its own, above the two-sided bracket — it's the bottom-8
+   play-in, not one of the two halves. Its undecided ties can still appear
+   as "Ball X or Ball Y" refs inside the R16 columns below (see matchHTML).
+   auto-fit/minmax means this naturally stacks into a single vertical column
+   of real "vs" cards on narrow/mobile screens, and only spreads into a row
+   once there's room — no separate mobile media query needed. */
+.r1standalone{margin-bottom:26px}
+.r1grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.r1grid .match{min-height:78px;display:flex;align-items:stretch;position:relative}
+.r1grid .match .row{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 8px;border:0;text-align:center}
+.r1grid .match .row span{font-size:12px;color:var(--muted)}
+.r1grid .match .row b{font-size:20px}
+.r1grid .match::after{content:"";position:absolute;left:50%;top:14px;bottom:14px;width:1px;background:var(--line)}
+/* Two-sided bracket: left half (R16→QF→SF) and right half (mirrored,
+   SF→QF→R16) converge on a centered Final. Each column is a flex track;
+   giving every column in a side the same fixed height and using
+   justify-content:space-around lets fewer matches (QF, SF) automatically
+   center themselves between the pair that feeds them, without hand-tuned
+   margins per round. --bgap drives both the flex gaps and the connector-
+   line math below, so the lines always meet the gap they're drawn across. */
+.bracket2{--bgap:22px;display:flex;gap:var(--bgap);min-width:0;align-items:center;justify-content:center;justify-content:safe center;padding:10px 4px}
+.bSide{display:flex;gap:var(--bgap)}
+.bColWrap{display:flex;flex-direction:column}
+.bCol{display:flex;flex-direction:column;justify-content:space-around;width:150px;height:420px}
+.bFinalWrap{display:flex;flex-direction:column;align-items:center;gap:12px;position:relative}
+.bFinalCol{display:flex;flex-direction:column;justify-content:center;width:150px;height:420px}
+/* Connector lines: each pair of matches gets an elbow (two stubs + a
+   vertical bar) pointing at the single box it feeds in the next column;
+   a lone match (SF, or a still-undrawn slot) just gets a straight stub.
+   .rtl mirrors everything onto the left edge for the right-hand side of
+   the bracket, which reads QF→R16 instead of R16→QF. */
+.bPair,.bSingle{position:relative;display:flex;flex-direction:column;justify-content:space-between}
+.bPair{gap:8px}
+/* per-match stub: box edge → the gap's midpoint */
+.bPair>.match::after{content:"";position:absolute;top:50%;right:calc(var(--bgap) / -2);width:calc(var(--bgap) / 2);height:0;border-top:2px solid var(--line)}
+/* vertical bar joining the two stubs, at the gap's midpoint */
+.bPair::before{content:"";position:absolute;top:25%;bottom:25%;right:calc(var(--bgap) / -2);width:0;border-right:2px solid var(--line)}
+/* spur continuing from the vertical bar's centre on into the next column */
+.bPair::after{content:"";position:absolute;top:50%;right:calc(var(--bgap) * -1);width:calc(var(--bgap) / 2);height:0;border-top:2px solid var(--line)}
+/* a lone match (e.g. SF→Final) just gets one straight stub, full gap width */
+.bSingle::after{content:"";position:absolute;top:50%;right:calc(var(--bgap) * -1);width:var(--bgap);height:0;border-top:2px solid var(--line)}
+/* .rtl mirrors every line above onto the left edge, for the right-hand side */
+.bPair.rtl>.match::after{right:auto;left:calc(var(--bgap) / -2)}
+.bPair.rtl::before{right:auto;left:calc(var(--bgap) / -2)}
+.bPair.rtl::after{right:auto;left:calc(var(--bgap) * -1)}
+.bSingle.rtl::after{right:auto;left:calc(var(--bgap) * -1)}
+.error{color:var(--error-c)}.loading{color:var(--loading-c)}.hidden{display:none}
+/* Live GW match cards in the H2H Analyst tab — tap a card to expand each
+   squad's live points, which recompute automatically as player scores
+   update (bonus points, goals, etc.) on the next data refresh. */
+.liveMatch{background:var(--surf1);border:1px solid var(--line);border-radius:11px;margin-bottom:10px;cursor:pointer;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.liveMatch:hover{border-color:var(--line-hover);box-shadow:0 6px 18px #00000030}
+.liveMatch .lmHead{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px;font-size:13px}
+.liveMatch .lmTeam{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.liveMatch .lmScore{font-family:var(--disp);white-space:nowrap;font-size:19px;font-weight:700;padding:0 6px}
+.liveMatch .lmCaret{color:var(--muted);font-size:11px;transition:transform .2s}
+.liveMatch.open .lmCaret{transform:rotate(180deg)}
+.liveMatch .lmBody{display:grid;grid-template-columns:1fr 1fr;max-height:0;overflow:hidden;transition:max-height .28s ease}
+.liveMatch.open .lmBody{max-height:640px;border-top:1px solid #2a3a2866}
+.liveMatch .lmSquad{padding:10px 13px}
+.liveMatch .lmSquad:first-child{border-right:1px solid #2a3a2866}
+.plRow{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid #2a3a2822}
+.plRow:last-child{border:0}
+.plRow.bench{opacity:.55}
+.themeToggle{position:fixed;top:14px;right:14px;z-index:30;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surf1);color:var(--ink);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px #00000030;transition:background .15s,border-color .15s}
+.themeToggle:hover{background:var(--surf-hover);border-color:var(--line-hover)}
+</style>
+</head>
+<body>
+<button id="themeToggle" class="themeToggle" aria-label="Toggle light/dark theme" title="Toggle light/dark theme">🌙</button>
+<div class="wrap">
+<header class="hero">
+<div class="eyebrow">⚽ Fantasy Premier League companion</div>
+<h1>Supreme FPL Hub</h1>
+<p>Scouting, captaincy calls, H2H analysis and a knockout cup for your mini-league — all in one place.</p>
+<div class="deadlineCard" id="deadlineCard">
+<div class="dcHead"><span class="dcIcon">⏱</span><span>Next deadline</span></div>
+<div id="deadline"></div>
+<div class="dcFoot">
+<button id="remindBtn" class="btn primary">Remind me 2h before</button>
+<div id="remindStatus" class="muted" style="font-size:11px"></div>
+</div>
+</div>
+</header>
+<nav class="nav">
+<button data-tab="board" class="active">Player Board</button>
+<button data-tab="dashboard">Dashboard</button>
+<button data-tab="insights">Insights</button>
+<button data-tab="h2h">H2H Analyst</button>
+<button data-tab="team">Team Analyzer</button>
+<button data-tab="cup">Supreme Carabao Cup</button>
+</nav>
+
+<section id="board" class="tab">
+<div class="panel">
+<div class="controls">
+<div><label>Position</label><div class="pills" id="pos"></div></div>
+<div><label>Look ahead: <span id="ngwLabel">5</span> GWs</label><input id="ngw" type="range" min="1" max="8" value="5"></div>
+<div><label>Maximum price: £<span id="budgetLabel">20.0</span>m</label><input id="budget" type="range" min="4" max="20" step=".5" value="20"></div>
+<div><label>Sort</label><div class="pills" id="sort"></div></div>
+</div>
+<p class="notice" id="boardNotice">Loading live FPL data…</p>
+</div>
+<div class="grid g2">
+<div class="panel"><h3 style="margin-top:0">📈 Consider Adding</h3><div id="buyList" class="muted">Loading…</div></div>
+<div class="panel"><h3 style="margin-top:0">📉 Consider Selling / Avoiding</h3><div id="sellList" class="muted">Loading…</div></div>
+</div>
+<div class="tableWrap"><table style="min-width:1100px"><thead><tr><th>#</th><th>Player</th><th>Team</th><th>Pos</th><th>£m</th><th>Form</th><th>Last GW</th><th>xGI/90</th><th>Next Opp</th><th>Fixture Run</th><th title="Overall quality score: recent form + underlying stats + fixture ease (blends the opponent's real current form, not just FPL's fixed difficulty rating)">Score</th><th title="Score ÷ price — how much quality you get per £m spent">Value</th></tr></thead><tbody id="players"></tbody></table></div>
+</section>
+
+<section id="dashboard" class="tab hidden">
+<div class="panel">
+<h2>Your Dashboard</h2>
+<p class="muted" style="margin-top:0">A live snapshot of one team — rank, gameweek score, chips and a captain steer. Uses the same Team ID as Team Analyzer, so it's already filled in once you've analyzed a team there.</p>
+<div class="controls" style="grid-template-columns:1fr auto">
+<div><label>Team ID</label><input id="dashTeamId" placeholder="e.g. 1234567"></div>
+<button class="btn primary" id="loadDashboard" style="align-self:end;margin-bottom:1px">Load Dashboard</button>
+</div>
+<div id="dashMsg" class="notice" style="margin-top:10px">No team loaded yet.</div>
+</div>
+<div id="dashResult"></div>
+</section>
+
+<section id="insights" class="tab hidden">
+<div class="grid g2">
+<div class="panel">
+<h2 style="margin-top:0">🎖️ Captaincy Picks</h2>
+<p class="muted" style="margin-top:0">Nailed starters with a fixture next gameweek, ranked by projected points. Split into safe (widely owned) and differential (low owned) picks.</p>
+<h3 style="margin-bottom:6px">Safe</h3><div id="capSafe" class="muted">Loading…</div>
+<h3 style="margin-bottom:6px">Differential</h3><div id="capDiff" class="muted">Loading…</div>
+</div>
+<div class="panel">
+<h2 style="margin-top:0">🔎 Differential Finder</h2>
+<label>Ownership below: <span id="diffPctLabel">10</span>%</label>
+<input id="diffPct" type="range" min="1" max="30" value="10">
+<div id="diffList" class="muted" style="margin-top:10px">Loading…</div>
+</div>
+<div class="panel">
+<h2 style="margin-top:0">💰 Price Change Watch</h2>
+<p class="muted" style="margin-top:0">FPL's own same-day price-change projections — not a guess, straight from their API.</p>
+<h3 style="margin-bottom:6px">Likely rises</h3><div id="priceUp" class="muted">Loading…</div>
+<h3 style="margin-bottom:6px">Likely falls</h3><div id="priceDown" class="muted">Loading…</div>
+</div>
+<div class="panel">
+<h2 style="margin-top:0">🩹 Injury & Rotation Digest</h2>
+<div id="injuryDigest" class="muted">Loading…</div>
+</div>
+</div>
+</section>
+
+<section id="h2h" class="tab hidden">
+<div class="panel">
+<h2>H2H Analyst</h2><p class="muted">Enter your FPL Head-to-Head league ID.</p>
+<label>League ID</label><input id="leagueId" placeholder="e.g. 123456">
+<button class="btn primary" id="loadLeague" style="margin-top:9px">Load H2H League</button>
+<div id="leagueMsg" class="notice" style="margin-top:10px">No league loaded.</div>
+</div>
+
+<div class="subnav">
+<button data-subtab="h2hMatches" class="active">Matches</button>
+<button data-subtab="h2hStandings">Standings</button>
+</div>
+
+<div id="h2hMatches" class="subtab">
+<div class="panel">
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+<h2 style="margin:0" id="matchesHeading">Live GW Matches</h2>
+<select id="matchGW" style="max-width:160px"></select>
+</div>
+<p class="muted" style="margin-top:6px" id="matchesSub">This gameweek's H2H fixtures with a live score computed from each squad's actual picks — tap a match to see both line-ups' live points. Recalculates as FPL updates player stats.</p>
+<div id="liveMatches" class="muted">Load the H2H league first.</div>
+</div>
+</div>
+
+<div id="h2hStandings" class="subtab hidden">
+<div class="panel">
+<div id="standings"></div>
+</div>
+<div class="panel">
+<h2>H2H Bot</h2>
+<div class="quick" id="quick"></div>
+<div id="chat" class="chat"></div>
+<div class="chatbar"><input id="query" placeholder="Ask the H2H bot…"><button class="btn primary" id="ask">Ask</button></div>
+</div>
+<div class="panel">
+<h2 style="margin-top:0">Mini-League Chip Tracker</h2>
+<p class="muted" style="margin-top:0">Which chips each manager in your league has already burned this season (Wildcard, Free Hit, Bench Boost, Triple Captain) — straight from FPL's own history for each entry.</p>
+<button class="btn" id="loadChips">Load chip usage</button>
+<div id="chipTracker" class="muted" style="margin-top:10px">Not loaded yet.</div>
+</div>
+</div>
+
+</section>
+
+<section id="team" class="tab hidden">
+<div class="panel">
+<h2>Team Analyzer</h2>
+<p class="muted">Enter a numeric FPL Team ID (found in your team's URL on the FPL site/app), or pick a team by name if you've loaded an H2H league.</p>
+<div class="controls" style="grid-template-columns:1fr 1fr">
+<div><label>Team ID</label><input id="teamId" placeholder="e.g. 1234567"></div>
+<div><label>Or pick from loaded league</label><select id="teamPicker"><option value="">— none loaded —</option></select></div>
+</div>
+<button class="btn primary" id="analyzeTeam" style="margin-top:9px">Analyze Team</button>
+<div id="teamMsg" class="notice" style="margin-top:10px">No team analyzed yet.</div>
+</div>
+<div id="teamResult"></div>
+<div class="grid g2">
+<div class="panel">
+<h2 style="margin-top:0">💸 Transfer Planner</h2>
+<p class="muted" style="margin-top:0">Best-scoring available players within a budget — defaults to your bank balance once a team's analyzed, but you can plan any budget.</p>
+<div class="controls" style="grid-template-columns:1fr 1fr">
+<div><label>Budget: £<span id="planBudgetLabel">5.0</span>m</label><input id="planBudget" type="range" min="3.5" max="15" step=".5" value="5"></div>
+<div><label>Position</label><div class="pills" id="planPos"></div></div>
+</div>
+<div id="transferPlan" class="muted" style="margin-top:10px">Analyze a team, or just move the slider, to see options.</div>
+</div>
+<div class="panel">
+<h2 style="margin-top:0">🃏 Chip Advisor</h2>
+<p class="muted" style="margin-top:0">Best upcoming gameweeks for your chips, based on your squad's actual fixtures over the next 8 gameweeks. Analyze your team first.</p>
+<div id="chipAdvisor" class="muted">Analyze a team above to see chip timing suggestions.</div>
+</div>
+</div>
+<div class="panel" id="optimalXIPanel" style="display:none">
+<h2 style="margin-top:0">🧩 Optimal XI</h2>
+<p class="muted" style="margin-top:0">The best-scoring valid starting XI our model can build from your 15-man squad — a read on your current lineup call, not a certainty.</p>
+<div id="optimalXI" class="muted">Analyze a team above to see this.</div>
+</div>
+</section>
+
+<section id="cup" class="tab hidden">
+<div id="cupContent" class="panel"><div class="trophy">🏆</div><h2>Supreme Carabao Cup</h2><p class="muted">Load your H2H league first.</p></div>
+</section>
+</div>
+
+
+<script>
+"use strict";
+const API="/api";
+const POS={1:"GKP",2:"DEF",3:"MID",4:"FWD"};
+let BS=null,FIX=null,TEAMS={},ELEMENTS_BY_ID={},GW=1,ROWS=[],LEAGUE=null,STANDINGS=[],MATCHES=[],CUP=null,FORM_CACHE=null;
+let SHARED_VIEW=false; // true when viewing a bracket via a shared link, not the loaded league
+let position="ALL",sortKey="score",nGws=5,budget=20,FXIDX={},FORMIDX={};
+// Populated once a team has been analyzed on the Team Analyzer tab, so the
+// Captaincy and Differentials tabs can say "you already own this" / "you
+// don't own X, consider" instead of staying generic. Cleared implicitly by
+// simply analyzing a different team ID.
+let MY_TEAM_ID=null,MY_OWNED_IDS=new Set();
+let MY_SQUAD=[],MY_BANK=0; // full squad rows + bank, set once a team's been analyzed — feeds the Transfer Planner and Chip Advisor
+let planPosition="ALL";
+
+const $=id=>document.getElementById(id);
+const num=v=>Number.isFinite(parseFloat(v))?parseFloat(v):0;
+const validId=x=>/^\d+$/.test(String(x||""));
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+
+/* Light/dark theme toggle. The actual attribute is already set as early as
+   possible by the tiny inline script right after <head> opens (so there's
+   no flash of the wrong theme) — this just handles the click + persists
+   the choice for next visit. */
+(function initThemeToggle(){
+  const btn=$("themeToggle");
+  const isLight=()=>document.documentElement.getAttribute("data-theme")==="light";
+  const sync=()=>{btn.textContent=isLight()?"☀️":"🌙"};
+  sync();
+  btn.onclick=()=>{
+    const next=isLight()?"dark":"light";
+    if(next==="light")document.documentElement.setAttribute("data-theme","light");
+    else document.documentElement.removeAttribute("data-theme");
+    try{localStorage.setItem("supreme_theme",next)}catch(e){}
+    sync();
+  };
+})();
+
+async function getJSON(url,options={}){
+  const c=new AbortController(),tm=setTimeout(()=>c.abort(),20000);
+  try{
+    const r=await fetch(url,{...options,signal:c.signal,headers:{"Content-Type":"application/json",...(options.headers||{})}});
+    if(!r.ok){let d={};try{d=await r.json()}catch{};throw Error(d.error||`HTTP ${r.status}`)}
+    return await r.json();
+  }finally{clearTimeout(tm)}
+}
+function currentGW(){return BS?.events?.find(e=>e.is_current)?.id||Math.max((BS?.events?.find(e=>e.is_next)?.id||2)-1,1)}
+/* Whether a gameweek is properly done — not just "not current anymore", but
+   FPL has finished it AND confirmed bonus points (data_checked). Standings
+   use this to stop showing a live/provisional bracket next to a team's
+   points once a gameweek is truly settled, rather than relying on the
+   is_current handoff alone. */
+function gwFinished(gw){const ev=BS?.events?.find(e=>e.id===gw);return !!(ev&&ev.finished&&ev.data_checked)}
+/* Deadline countdown — ticks every second off the next unfired deadline in
+   BS.events, so it stays accurate between the periodic data refreshes below
+   without needing its own network call. */
+function nextDeadlineEvent(){
+  if(!BS?.events)return null;
+  const now=Date.now();
+  return BS.events.find(e=>e.deadline_time&&new Date(e.deadline_time).getTime()>now)||null;
+}
+function fmtCountdown(ms){
+  if(ms<=0)return "deadline passed";
+  const s=Math.floor(ms/1000),d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),sec=s%60;
+  if(d>0)return `${d}d ${h}h ${m}m`;
+  if(h>0)return `${h}h ${m}m`;
+  if(m>0)return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+/* Same breakdown as fmtCountdown, but as separate {value,unit} parts so the
+   deadline card can render each as its own scoreboard-style block instead
+   of one line of text. */
+function countdownParts(ms){
+  if(ms<=0)return [];
+  const s=Math.floor(ms/1000),d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),sec=s%60;
+  if(d>0)return [["D",d],["H",h],["M",m]];
+  if(h>0)return [["H",h],["M",m],["S",sec]];
+  return [["M",m],["S",sec]];
+}
+function updateDeadlineDisplay(){
+  const el=$("deadline");if(!el)return;
+  const ev=nextDeadlineEvent();
+  if(!ev){el.innerHTML='<p class="muted" style="margin:4px 0 0">'+(BS?"No upcoming deadline found.":"Loading…")+'</p>';return}
+  const ms=new Date(ev.deadline_time).getTime()-Date.now();
+  const when=new Date(ev.deadline_time).toLocaleString([],{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  const blocks=countdownParts(ms).map(([unit,val])=>`<div class="cdBlock"><b>${String(val).padStart(2,"0")}</b><small>${unit}</small></div>`).join("");
+  el.innerHTML=`<div class="cdRow">${blocks}</div><p class="dcCaption">${esc(ev.name||`GW${ev.id}`)} · locks ${esc(when)}</p>`;
+}
+updateDeadlineDisplay(); // render right away instead of waiting for the first 1s tick below
+setInterval(updateDeadlineDisplay,1000);
+
+/* Deadline reminders — a real browser Notification fired 2h before whatever
+   the *current* next gameweek deadline is, recomputed every time BS.events
+   refreshes. Unlike a phone alarm set once for "next Saturday", this always
+   tracks the actual next deadline (different day/time every gameweek)
+   without needing to be re-armed by hand — the toggle stays on and just
+   quietly re-points itself at whichever gameweek's deadline is next, firing
+   once per gameweek (REMIND_FIRED_KEY stops a duplicate ping if the timer
+   re-checks inside that same 2h window).
+   Note this is a browser Notification, not an entry in the phone's own
+   Alarms app — nothing gets left behind for you to go find and clean up
+   once it's fired; it simply stops watching this gameweek and starts
+   watching the next one.
+   Limitation, stated plainly: this only fires while the tab/app is open (or
+   open in the background) — a static site with no push server can't wake a
+   fully closed browser the way a native app notification can. */
+const REMIND_KEY="supreme_deadline_reminders", REMIND_FIRED_KEY="supreme_last_reminder_event";
+function remindersEnabled(){return localStorage.getItem(REMIND_KEY)==="1"}
+function setRemindersEnabled(on){localStorage.setItem(REMIND_KEY,on?"1":"0")}
+function renderRemindBtn(){
+  const supported=typeof Notification!=="undefined";
+  const btn=$("remindBtn"),status=$("remindStatus");
+  if(!supported){btn.style.display="none";status.textContent="Notifications aren't supported in this browser.";return}
+  const on=remindersEnabled()&&Notification.permission==="granted";
+  btn.textContent=on?"Deadline reminders on":"Remind me 2h before each deadline";
+  if(Notification.permission==="denied"){status.textContent="Notifications are blocked for this site in your browser settings — allow them to use this.";}
+  else if(on){const ev=nextDeadlineEvent();status.textContent=ev?`On — you'll get a notification ~2h before ${esc(ev.name||"GW"+ev.id)} locks, and it'll automatically carry on to every gameweek after that. Keep this tab open (or in a background tab) for it to fire.`:"On — waiting on the next gameweek deadline to appear.";}
+  else{status.textContent="Off. Turning this on asks your browser for notification permission once, then stays on for every future gameweek until you switch it off.";}
+}
+$("remindBtn").onclick=async()=>{
+  if(typeof Notification==="undefined")return;
+  if(remindersEnabled()&&Notification.permission==="granted"){setRemindersEnabled(false);renderRemindBtn();return}
+  if(Notification.permission==="denied"){renderRemindBtn();return}
+  const perm=Notification.permission==="granted"?"granted":await Notification.requestPermission();
+  if(perm==="granted"){
+    setRemindersEnabled(true);
+    // Some mobile browsers (notably Chrome/Android) throw here — the
+    // Notification constructor is blocked outside a service worker there.
+    // Guard it so that failure can't skip the renderRemindBtn() below and
+    // leave the button showing "off" even though we just turned it on.
+    try{new Notification("Deadline reminders on",{body:"You'll get a heads-up 2 hours before every FPL gameweek deadline while this tab's open — no need to re-arm it each week."})}
+    catch(e){}
+  }
+  renderRemindBtn();
+};
+function checkDeadlineReminder(){
+  if(!remindersEnabled()||typeof Notification==="undefined"||Notification.permission!=="granted")return;
+  const ev=nextDeadlineEvent();if(!ev)return;
+  const deadline=new Date(ev.deadline_time).getTime(),now=Date.now();
+  const reminderAt=deadline-2*60*60*1000;
+  const lastFired=localStorage.getItem(REMIND_FIRED_KEY);
+  if(now>=reminderAt&&now<deadline&&String(lastFired)!==String(ev.id)){
+    const when=new Date(ev.deadline_time).toLocaleString([],{weekday:"short",hour:"2-digit",minute:"2-digit"});
+    try{new Notification(`⏰ ${ev.name||"GW"+ev.id} deadline in ~2 hours`,{body:`Locks ${when} — get your transfers/captain sorted.`})}
+    catch(e){}
+    localStorage.setItem(REMIND_FIRED_KEY,String(ev.id)); // marks *this* gameweek done regardless of whether the notification itself displayed; reminders stay on and will fire again for the next one automatically
+  }
+}
+renderRemindBtn();
+checkDeadlineReminder(); // evaluate immediately on load too, not just on the next 60s tick
+setInterval(()=>{checkDeadlineReminder();if(BS)renderRemindBtn()},60*1000);
+/* Auto-refresh — the page used to fetch bootstrap/fixtures once on load and
+   then go stale for as long as it stayed open. Re-pull every 5 minutes, and
+   also immediately on returning to the tab if a refresh window was missed
+   while it was in the background (throttled/paused timers). */
+const REFRESH_MS=5*60*1000;
+let lastLoadTime=0;
+setInterval(()=>{ if(BS) loadBase(); if(STANDINGS.length) refreshLeagueLive(); },REFRESH_MS);
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&BS&&Date.now()-lastLoadTime>REFRESH_MS){ loadBase(); if(STANDINGS.length) refreshLeagueLive(); }
+});
+/* Builds, per team, a chronological list of every scheduled fixture with
+   opponent id, venue and difficulty. Powers both the Next Opponent chip and
+   the weighted fixture-run scoring below. Naturally reflects blank and
+   double gameweeks, since a team simply has 0 or 2+ entries for a given GW. */
+function buildFixtureIndex(){
+  const idx={}; if(!FIX)return idx;
+  FIX.forEach(f=>{
+    if(f.event==null)return;
+    (idx[f.team_h]??=[]).push({event:f.event,opp:f.team_a,isHome:true,difficulty:num(f.team_h_difficulty)||3});
+    (idx[f.team_a]??=[]).push({event:f.event,opp:f.team_h,isHome:false,difficulty:num(f.team_a_difficulty)||3});
+  });
+  Object.values(idx).forEach(arr=>arr.sort((a,b)=>a.event-b.event));
+  return idx;
+}
+/* FPL's own fixture difficulty rating is fixed for most of the season and
+   reflects a pre-season view of a club's overall quality, not how that
+   club is actually playing right now. A side can be "hard" on paper while
+   leaking goals every week, which unfairly drags down every attacker who
+   faces them. This builds a *current-form* difficulty per team from real
+   recent results — goals conceded in their last 6 finished matches — so a
+   team that's actually defending well plays as tough, and a team that's
+   actually leaking plays as easy, regardless of its fixed rating.
+   Scaled onto the same 1(easy)-5(hard) axis as FPL's own difficulty via
+   percentile rank, so the two blend cleanly. */
+function buildTeamFormDifficulty(){
+  const out={}; if(!FIX)return out;
+  const conceded={};
+  FIX.filter(f=>f.finished&&f.team_h_score!=null&&f.team_a_score!=null)
+    .sort((a,b)=>a.event-b.event)
+    .forEach(f=>{
+      (conceded[f.team_h]??=[]).push(num(f.team_a_score));
+      (conceded[f.team_a]??=[]).push(num(f.team_h_score));
+    });
+  const teamIds=Object.keys(conceded);
+  const stats=teamIds.map(id=>{
+    const last=conceded[id].slice(-6);
+    return {id,gaAvg:last.reduce((a,b)=>a+b,0)/last.length,sample:last.length};
+  });
+  // Below 3 finished matches, one fluky scoreline can swing a team's average
+  // by 2+ goals — that's noise, not signal. Rank/weight only the teams with
+  // enough of a sample to trust; everyone else falls back fully to FPL's
+  // own static difficulty (handled in score() via formIdx lookup miss).
+  const MIN_SAMPLE=3;
+  const trusted=stats.filter(s=>s.sample>=MIN_SAMPLE);
+  const ranked=[...trusted].sort((a,b)=>a.gaAvg-b.gaAvg); // fewest conceded first = toughest defense
+  const n=ranked.length;
+  ranked.forEach((s,i)=>{
+    const pct=n>1?i/(n-1):0.5; // 0 = tightest recent defense .. 1 = leakiest
+    out[s.id]={difficulty:5-pct*4,sample:s.sample}; // maps to 5(hard)..1(easy)
+  });
+  return out;
+}
+/* FPL's own expected_goal_involvements_per_90 is a straight (xGI / minutes) * 90
+   calculation with no minimum-sample guard. A player with e.g. 6 minutes and a
+   single deflected shot's worth of xG can show a "per 90" rate of 10-15+, which
+   is not a real rate, it's a tiny numerator amplified by a tiny denominator.
+   We shrink it toward 0 using a 90-minute "prior" (so a player needs a real
+   sample before their rate is trusted at face value), plus a hard cap as a
+   safety net since even shrinkage can't fully tame a freak single-fixture spike. */
+function safeXgi90(p){
+  const raw=num(p.expected_goal_involvements_per_90);
+  const mins=num(p.minutes);
+  const reliability=mins/(mins+90); // 0 mins→0×, 90 mins→0.5×, 900 mins→~0.91×
+  return Math.min(raw*reliability,2);
+}
+/* Score = (quality shown last gameweek + underlying season quality)
+         × availability × minutes-reliability
+         × fixture outlook (recency-weighted ease, nearer GWs matter more,
+           blended with the opponent's actual current form — see
+           buildTeamFormDifficulty — so a good player isn't punished for a
+           "hard" fixture against a team that's currently leaking goals)
+         × fixture-count factor (rewards double gameweeks, punishes blanks). */
+function score(p,fxIdx,from,count,formIdx){
+  const price=num(p.now_cost)/10;
+  const form=num(p.form),ppg=num(p.points_per_game),lastGW=num(p.event_points);
+  const xgi=safeXgi90(p),ict=num(p.ict_index),epNext=num(p.ep_next);
+  const chance=p.chance_of_playing_next_round==null?100:num(p.chance_of_playing_next_round);
+  const mins=num(p.minutes),starts=num(p.starts);
+  const rel=starts?Math.min(mins/(starts*90+1),1):mins?1:.3;
+  const upcoming=(fxIdx[p.team]||[]).filter(f=>f.event>=from&&f.event<from+count);
+  let wsum=0,esum=0;
+  upcoming.forEach(f=>{
+    const w=(from+count-f.event)+1;
+    const oppForm=formIdx?.[f.opp];
+    // Trust current form more as its sample grows (up to 6 games); before
+    // that, lean on FPL's static rating so a small early-season sample
+    // doesn't swing things wildly.
+    const formWeight=oppForm?Math.min(oppForm.sample/6,1)*0.65:0;
+    const effDifficulty=oppForm?f.difficulty*(1-formWeight)+oppForm.difficulty*formWeight:f.difficulty;
+    esum+=(5-effDifficulty)*w;wsum+=w;
+  });
+  const ease=wsum?esum/wsum:2.5; // recency-weighted ease of the run (0 hard .. ~4 easy)
+  const fixtureMult=0.7+0.6*(ease/5); // ~0.7 (brutal run) .. ~1.18 (dream run)
+  const ratio=count?upcoming.length/count:1;
+  const countFactor=Math.max(0.4,Math.min(1.6,0.4+0.6*ratio)); // <1 = blanks ahead, >1 = doubles ahead
+  const priorQuality=lastGW*1.1+form*2.0+ppg*0.8+xgi*6+ict*0.04; // last-GW output + sustained underlying quality
+  const s=priorQuality*(chance/100)*(.5+.5*rel)*fixtureMult*countFactor;
+  const next=upcoming.filter(f=>f.event===from); // immediate next gameweek only (could be 0, 1 or 2 fixtures)
+  // Track-record / role signals — these describe *why* a player has scored,
+  // not just how much, so a hot-streak player and a consistently-good one
+  // don't look identical. dreamteam_count and value_season come straight
+  // from FPL's own season totals (not just recent form); set-piece order
+  // fields (1 or 2 = primary/backup taker) mark a durable scoring role that
+  // tends to survive a single bad game, which is what "good to hold" means.
+  const setPieceDuty=[p.corners_and_indirect_freekicks_order,p.direct_freekicks_order,p.penalties_order]
+    .some(o=>o!=null&&o<=2);
+  const valueSeason=num(p.value_season); // FPL's own total-points-per-£m for the whole season
+  const dreamteamCount=num(p.dreamteam_count); // times selected in FPL's official Team of the Week
+  return {id:p.id,name:p.web_name,full:`${p.first_name} ${p.second_name}`,team:TEAMS[p.team]?.short_name||"?",teamId:p.team,pos:POS[p.element_type],
+    price,form,ep:epNext,lastGW,xgi,lowSample:mins<180,ease,score:s,value:price?s/price:0,chance,rel,next,run:upcoming,
+    setPieceDuty,valueSeason,dreamteamCount,totalPoints:num(p.total_points),
+
+    status:p.status,priceMomentum:num(p.cost_change_event),
+    /* Raw (transfers_in - transfers_out) is an absolute headcount, so it
+       structurally favors whichever club is currently most talked-about
+       (e.g. an unbeaten Arsenal start) regardless of whether a given
+       player is actually a better momentum pick. Normalizing by the
+       player's existing owner base turns it into a relative swing —
+       "how much is this changing versus its own baseline" — instead of
+       "which club has the biggest fanbase paying attention this week." */
+    netTransfers:(()=>{const raw=num(p.transfers_in_event)-num(p.transfers_out_event);const ownersEst=num(p.selected_by_percent)*90000+1000;return raw/ownersEst})(),
+    ownership:num(p.selected_by_percent)};
+}
+function oppChip(f){
+  const short=TEAMS[f.opp]?.short_name||"?",cls="fx"+Math.max(1,Math.min(5,Math.round(f.difficulty)));
+  return `<span class="fx ${cls}">${esc(short)} ${f.isHome?"(H)":"(A)"}</span>`;
+}
+function nextOppCell(row){
+  if(!row.next.length)return '<span class="fx fx-blank">BLANK</span>';
+  return '<div class="fxrow">'+row.next.map(oppChip).join("")+'</div>';
+}
+function fixtureRunCell(row){
+  if(!row.run.length)return '<span class="muted">No fixtures</span>';
+  return '<div class="fxrow">'+row.run.map(oppChip).join("")+'</div>';
+}
+function renderButtons(){
+  $("pos").innerHTML=["ALL","GKP","DEF","MID","FWD"].map(x=>`<button class="pill ${position===x?"active":""}" data-pos="${x}">${x}</button>`).join("");
+  $("sort").innerHTML=[["score","Score"],["value","Value/£m"],["form","Form"],["lastGW","Last GW"],["ep","Next GW xP"]].map(x=>`<button class="pill ${sortKey===x[0]?"active":""}" data-sort="${x[1]}">${x[1]}</button>`.replace('data-sort="'+x[1]+'"','data-sort="'+x[0]+'"')).join("");
+  document.querySelectorAll("[data-pos]").forEach(b=>b.onclick=()=>{position=b.dataset.pos;renderButtons();renderPlayers()});
+  document.querySelectorAll("[data-sort]").forEach(b=>b.onclick=()=>{sortKey=b.dataset.sort;renderButtons();renderPlayers()});
+}
+function renderPlayers(){
+  const list=ROWS.filter(p=>(position==="ALL"||p.pos===position)&&p.price<=budget).sort((a,b)=>b[sortKey]-a[sortKey]).slice(0,50);
+  $("players").innerHTML=list.map((p,i)=>`<tr><td>${i+1}</td><td><b>${esc(p.name)}</b><div class="muted">${esc(p.full)}</div></td><td>${esc(p.team)}</td><td><span class="tag">${p.pos}</span></td><td>${p.price.toFixed(1)}</td><td>${p.form.toFixed(1)}</td><td>${Math.round(p.lastGW)}</td><td>${p.xgi.toFixed(2)}${p.lowSample?' <span class="muted" title="Small minutes sample — rate may not be reliable yet">·low sample</span>':''}</td><td>${nextOppCell(p)}</td><td>${fixtureRunCell(p)}</td><td class="score">${p.score.toFixed(1)}</td><td>${p.value.toFixed(2)}</td></tr>`).join("");
+  renderSuggestions();
+}
+/* Board-level buy/sell suggestions — independent of any single manager's
+   squad (that's what the Team Analyzer tab is for). Buys reward reliable
+   starters with strong underlying score plus positive market momentum;
+   sells surface availability risk, falling price + owners leaving, or a
+   brutal fixture run, ranked worst-value-for-price first. */
+function buyReason(r){
+  const bits=[];
+  if(r.priceMomentum>0)bits.push("price rising");
+  if(r.netTransfers>0)bits.push("gaining owners");
+  if(r.ease>=3)bits.push("good fixture run");
+  if(r.form>=5)bits.push("strong form");
+  return bits.length?bits.join(" · "):"High underlying score for price";
+}
+function sellReason(r){
+  const bits=[];
+  if(r.status!=="a")bits.push("unavailable/suspended");
+  if(r.chance<75)bits.push(`fitness doubt (${r.chance}%)`);
+  if(r.priceMomentum<0)bits.push("price falling");
+  if(r.netTransfers<0)bits.push("losing owners");
+  if(r.ease<1.5)bits.push("tough fixture run");
+  return bits.length?bits.join(" · "):"Poor value for price";
+}
+function topWithTeamCap(sortedList,limit,maxPerTeam){
+  const count={},out=[];
+  for(const r of sortedList){
+    const c=count[r.team]||0;
+    if(c>=maxPerTeam)continue;
+    out.push(r);count[r.team]=c+1;
+    if(out.length>=limit)break;
+  }
+  return out;
+}
+function renderSuggestions(){
+  const pool=ROWS.filter(p=>p.price<=budget&&(position==="ALL"||p.pos===position));
+  const buySorted=pool.filter(r=>r.status==="a"&&r.chance>=75&&r.rel>0.5)
+    .sort((a,b)=>(b.score*(1+Math.max(0,b.priceMomentum)*0.1)+b.netTransfers*2)-(a.score*(1+Math.max(0,a.priceMomentum)*0.1)+a.netTransfers*2));
+  const sellSorted=pool.filter(r=>r.status!=="a"||r.chance<75||(r.priceMomentum<0&&r.netTransfers<0)||r.ease<1.5)
+    .sort((a,b)=>(a.value)-(b.value));
+  const buys=topWithTeamCap(buySorted,5,2);
+  const sells=topWithTeamCap(sellSorted,5,2);
+  const row=(r,reasonFn)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid #2a3038"><div><b>${esc(r.name)}</b> <span class="muted">${esc(r.team)} · £${r.price.toFixed(1)}m</span><div class="muted" style="font-size:11px">${esc(reasonFn(r))}</div></div><div class="score">${r.score.toFixed(1)}</div></div>`;
+  $("buyList").innerHTML=buys.length?buys.map(r=>row(r,buyReason)).join(""):'<p class="muted">No standout candidates in this filter.</p>';
+  $("sellList").innerHTML=sells.length?sells.map(r=>row(r,sellReason)).join(""):'<p class="muted">No red flags in this filter.</p>';
+}
+const rowLine=(left,right)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid #2a3038">${left}${right}</div>`;
+
+/* Captaincy: nailed starters (reliable minutes, fit, has a fixture next GW)
+   ranked by FPL's own next-round expected points (ep_next), nudged for a
+   double gameweek. Split by ownership so "safe" and "differential" are two
+   different questions, not one blended list. */
+function renderCaptaincy(){
+  const pool=ROWS.filter(r=>r.status==="a"&&r.chance>=75&&r.rel>0.5&&r.next.length>0)
+    .map(r=>({...r,capScore:r.ep*(0.5+0.5*r.rel)*(r.chance/100)*(1+0.15*Math.max(0,r.next.length-1))}))
+    .sort((a,b)=>b.capScore-a.capScore);
+  const safe=pool.filter(r=>r.ownership>=15).slice(0,5);
+  const diff=pool.filter(r=>r.ownership<15).slice(0,5);
+  // Once a team's been loaded on the Team Analyzer tab, flag whether each
+  // pick is already in that squad, so this reads as personal advice
+  // ("you own X, captain them" / "you don't own Y, consider bringing in")
+  // instead of a generic list.
+  const ownTag=r=>MY_OWNED_IDS.size?(MY_OWNED_IDS.has(r.id)?' <span class="fx fx1" style="font-size:9px">YOU OWN</span>':' <span class="muted" style="font-size:10px">— not in your squad</span>'):"";
+  const line=r=>rowLine(`<div><b>${esc(r.name)}</b> <span class="muted">${esc(r.team)} · ${r.ownership.toFixed(1)}% owned</span>${ownTag(r)}</div>`,`<div class="score">${r.capScore.toFixed(1)} xP</div>`);
+  $("capSafe").innerHTML=safe.length?safe.map(line).join(""):'<p class="muted">No widely-owned nailed picks found.</p>';
+  $("capDiff").innerHTML=diff.length?diff.map(line).join(""):'<p class="muted">No low-owned nailed picks found.</p>';
+}
+
+/* Differentials: below an ownership threshold, ranked by the same score
+   used everywhere else on the board — so this is "good AND under-owned",
+   not just "under-owned". */
+function renderDifferentials(){
+  const threshold=+$("diffPct").value;$("diffPctLabel").textContent=threshold;
+  const list=ROWS.filter(r=>r.ownership<threshold&&r.status==="a"&&r.chance>=75)
+    .sort((a,b)=>b.score-a.score).slice(0,10);
+  const ownTag=r=>MY_OWNED_IDS.size?(MY_OWNED_IDS.has(r.id)?' <span class="fx fx1" style="font-size:9px">YOU OWN</span>':' <span class="muted" style="font-size:10px">— you don\'t own this, consider bringing in</span>'):"";
+  const line=r=>rowLine(`<div><b>${esc(r.name)}</b> <span class="muted">${esc(r.team)} · ${r.pos} · £${r.price.toFixed(1)}m · ${r.ownership.toFixed(1)}% owned</span>${ownTag(r)}</div>`,`<div class="score">${r.score.toFixed(1)}</div>`);
+  $("diffList").innerHTML=list.length?list.map(line).join(""):'<p class="muted">Nobody under that ownership threshold scores well right now — try raising it.</p>';
+}
+$("diffPct").oninput=renderDifferentials;
+
+/* Transfer Planner: same ROWS/score() data as the Player Board, just
+   filtered by a budget (defaults to the analyzed team's bank) and
+   excluding whatever's already owned once a team's been loaded. Works
+   even with no team loaded — it just won't be able to flag ownership. */
+function renderPlanPills(){
+  $("planPos").innerHTML=["ALL","GKP","DEF","MID","FWD"].map(x=>`<button class="pill ${planPosition===x?"active":""}" data-planpos="${x}">${x}</button>`).join("");
+  document.querySelectorAll("[data-planpos]").forEach(b=>b.onclick=()=>{planPosition=b.dataset.planpos;renderPlanPills();renderTransferPlan()});
+}
+function renderTransferPlan(){
+  const budget=+$("planBudget").value;$("planBudgetLabel").textContent=budget.toFixed(1);
+  const list=ROWS.filter(r=>(planPosition==="ALL"||r.pos===planPosition)&&r.price<=budget+0.001&&r.status==="a"&&r.chance>=75&&!MY_OWNED_IDS.has(r.id))
+    .sort((a,b)=>b.score-a.score).slice(0,10);
+  const line=r=>rowLine(`<div><b>${esc(r.name)}</b> <span class="muted">${esc(r.team)} · ${r.pos} · £${r.price.toFixed(1)}m · ${fixtureLabel(r.ease)}</span></div>`,`<div class="score">${r.score.toFixed(1)}</div>`);
+  $("transferPlan").innerHTML=list.length?list.map(line).join(""):`<p class="muted">Nobody within £${budget.toFixed(1)}m clears the availability bar right now — try raising the budget.</p>`;
+}
+$("planBudget").oninput=renderTransferPlan;
+renderPlanPills();
+
+/* Chip Advisor: reuses FXIDX (already built for the Player Board's fixture
+   columns) against the analyzed squad's own team IDs, so "best GW for
+   Free Hit / Bench Boost / Triple Captain" is based on this squad's actual
+   blank/double pattern rather than a generic league-wide one. */
+function renderChipAdvisor(){
+  const el=$("chipAdvisor");
+  if(!MY_SQUAD.length){el.innerHTML='<p class="muted">Analyze a team above to see chip timing suggestions.</p>';return}
+  const LOOKAHEAD=8;
+  const rows=[];
+  for(let g=GW+1; g<GW+1+LOOKAHEAD; g++){
+    let blanks=0,doubles=0;const doubleNames=[];
+    MY_SQUAD.forEach(p=>{
+      const fx=(FXIDX[p.info.teamId]||[]).filter(f=>f.event===g);
+      if(fx.length===0)blanks++;
+      else if(fx.length>=2){doubles++;doubleNames.push(p.info.name)}
+    });
+    rows.push({gw:g,blanks,doubles,doubleNames});
+  }
+  const bestFreeHit=[...rows].sort((a,b)=>b.blanks-a.blanks)[0];
+  const bestBoost=[...rows].sort((a,b)=>b.doubles-a.doubles)[0];
+  const table=rows.map(r=>`<tr><td>GW${r.gw}</td><td>${r.blanks}/${MY_SQUAD.length}</td><td>${r.doubles}/${MY_SQUAD.length}</td></tr>`).join("");
+  const advice=[];
+  if(bestFreeHit.blanks>=3)advice.push(`🆓 <b>Free Hit:</b> GW${bestFreeHit.gw} looks like your best shout — ${bestFreeHit.blanks} of your 15 have no fixture that week.`);
+  else advice.push(`🆓 <b>Free Hit:</b> no gameweek in the next ${LOOKAHEAD} has enough of your squad blanking to clearly justify it yet.`);
+  if(bestBoost.doubles>=3)advice.push(`⚡ <b>Bench Boost / Triple Captain:</b> GW${bestBoost.gw} stands out — ${bestBoost.doubles} of your 15 have a double (${bestBoost.doubleNames.slice(0,4).map(esc).join(", ")}${bestBoost.doubleNames.length>4?"…":""}).`);
+  else advice.push(`⚡ <b>Bench Boost / Triple Captain:</b> no strong double-gameweek stack in your squad in the next ${LOOKAHEAD} gameweeks yet — worth rechecking closer to the time as fixtures get rearranged.`);
+  const avgEase=r=>{const vals=MY_SQUAD.map(p=>p.info.ease).filter(v=>Number.isFinite(v));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0};
+  advice.push(`🃏 <b>Wildcard:</b> your squad's blended fixture ease right now is ${avgEase().toFixed(1)}/5 (Player Board scale) — a wildcard tends to be best timed just before a run of green fixtures, so watch the Player Board's fixture-run column for your weakest-scoring players.`);
+  el.innerHTML=`<div class="tableWrap"><table style="min-width:420px"><thead><tr><th>GW</th><th>Blanking</th><th>Doubling</th></tr></thead><tbody>${table}</tbody></table></div>`
+    +`<div class="notice" style="margin-top:10px;line-height:1.6">${advice.join("<br><br>")}</div>`;
+}
+
+/* Price Change Watch uses FPL's own price_change_projections field (offset 0
+   = today) rather than a homemade heuristic — it's their actual pricing
+   model output. Skips anything already locked for today or still
+   calibrating (brand-new signings with too little data to trust). */
+function renderPriceWatch(){
+  const now=Date.now();
+  const withProj=Object.values(ELEMENTS_BY_ID).map(p=>{
+    const proj=(p.price_change_projections||[])[0];
+    const locked=p.price_change_locked_until&&Date.parse(p.price_change_locked_until)>now;
+    return {p,pct:proj?parseFloat(proj.projected_percent):0,likelihood:proj?proj.likelihood:0,locked,calibrating:p.price_change_calibrating};
+  }).filter(x=>!x.locked&&!x.calibrating&&x.pct!==0);
+  const rises=withProj.filter(x=>x.pct>0).sort((a,b)=>b.pct-a.pct).slice(0,8);
+  const falls=withProj.filter(x=>x.pct<0).sort((a,b)=>a.pct-b.pct).slice(0,8);
+  const confLabel=n=>{const a=Math.abs(n);return a>=5?"very likely":a>=3?"likely":"possible"};
+  const line=x=>rowLine(`<div><b>${esc(x.p.web_name)}</b> <span class="muted">£${(x.p.now_cost/10).toFixed(1)}m · ${confLabel(x.likelihood)}</span></div>`,`<div class="score" style="color:${x.pct>0?"var(--g)":"var(--red)"}">${x.pct>0?"+":""}${x.pct.toFixed(1)}%</div>`);
+  $("priceUp").innerHTML=rises.length?rises.map(line).join(""):'<p class="muted">No rises projected right now.</p>';
+  $("priceDown").innerHTML=falls.length?falls.map(line).join(""):'<p class="muted">No falls projected right now.</p>';
+}
+
+/* Injury/rotation digest: every player FPL itself flags as not nailed-on
+   (status ≠ "a", or a stated % chance of playing below 100), grouped by
+   team, worst doubts first. Pulls straight from the raw element so it
+   includes the actual news string, not just our derived score fields. */
+function renderInjuryDigest(){
+  const flagged=Object.values(ELEMENTS_BY_ID)
+    .filter(p=>p.status!=="a"||(p.chance_of_playing_next_round!=null&&p.chance_of_playing_next_round<100))
+    .sort((a,b)=>(a.chance_of_playing_next_round??0)-(b.chance_of_playing_next_round??0));
+  if(!flagged.length){$("injuryDigest").innerHTML='<p class="muted">No flagged injuries or doubts in the current data.</p>';return}
+  const byTeam={};
+  flagged.forEach(p=>{const t=TEAMS[p.team]?.short_name||"?";(byTeam[t]??=[]).push(p)});
+  const statusWord={i:"Injured",s:"Suspended",u:"Unavailable",d:"Doubtful",n:"Not available"};
+  $("injuryDigest").innerHTML=Object.keys(byTeam).sort().map(t=>{
+    const rows=byTeam[t].map(p=>{
+      const chance=p.chance_of_playing_next_round;
+      return `<div style="padding:6px 0;border-bottom:1px solid #2a3038"><b>${esc(p.web_name)}</b> — ${esc(statusWord[p.status]||"Doubtful")}${chance!=null?` (${chance}% to play)`:""}${p.news?`<div class="muted" style="font-size:11px">${esc(p.news)}</div>`:""}</div>`;
+    }).join("");
+    return `<h3 style="margin-bottom:6px">${esc(t)}</h3>${rows}`;
+  }).join("");
+}
+async function loadBase(){
+  const isRefresh=!!BS; // background refresh vs first load — keep the UI calmer on repeats
+  try{
+    [BS,FIX]=await Promise.all([getJSON(API+"/bootstrap"),getJSON(API+"/fixtures")]);
+    TEAMS=Object.fromEntries(BS.teams.map(t=>[t.id,t]));ELEMENTS_BY_ID=Object.fromEntries(BS.elements.map(e=>[e.id,e]));GW=currentGW();FXIDX=buildFixtureIndex();FORMIDX=buildTeamFormDifficulty();
+    ROWS=BS.elements.filter(p=>POS[p.element_type]).map(p=>score(p,FXIDX,GW+1,nGws,FORMIDX));
+    $("boardNotice").textContent=`Live GW${GW} data · investment scoring looks ahead from GW${GW+1}.`;
+    lastLoadTime=Date.now();
+    updateDeadlineDisplay();renderPlayers();autoRestoreCup();
+    renderCaptaincy();renderDifferentials();renderPriceWatch();renderInjuryDigest();renderTransferPlan();
+    checkDeadlineReminder();renderRemindBtn();
+    if(STANDINGS.length){renderStandings();renderLiveMatches();}
+  }catch(e){
+    if(!isRefresh)$("boardNotice").innerHTML=`<span class="error">${esc(e.message)}</span><br>Couldn't reach live FPL data — try refreshing in a moment.`;
+  }
+}
+$("ngw").oninput=e=>{nGws=+e.target.value;$("ngwLabel").textContent=nGws;if(BS){ROWS=BS.elements.filter(p=>POS[p.element_type]).map(p=>score(p,FXIDX,GW+1,nGws,FORMIDX));renderPlayers()}};
+$("budget").oninput=e=>{budget=+e.target.value;$("budgetLabel").textContent=budget.toFixed(1);renderPlayers()};
+document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tab").forEach(x=>x.classList.add("hidden"));$(b.dataset.tab).classList.remove("hidden");try{localStorage.setItem("supreme_tab",b.dataset.tab)}catch(e){}});
+/* H2H Analyst's own Matches/Standings sub-tabs — separate from the main
+   nav so switching one never touches the other. */
+document.querySelectorAll(".subnav button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".subnav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".subtab").forEach(x=>x.classList.add("hidden"));$(b.dataset.subtab).classList.remove("hidden");try{localStorage.setItem("supreme_subtab",b.dataset.subtab)}catch(e){}});
+/* Restore whichever tab/sub-tab the person was last on, so a refresh (or
+   reopening the site later) lands back where they left off instead of
+   bouncing to the home tab. A shared-cup link (handled further down)
+   always takes priority over this. A first-ever visit has nothing saved
+   yet, so it just keeps the tab that's already marked active in the
+   markup (Player Board). */
+(function restoreLastTab(){
+  if(/shared_cup=/.test(location.hash))return;
+  try{
+    const savedTab=localStorage.getItem("supreme_tab");
+    if(savedTab){
+      const btn=document.querySelector(`.nav button[data-tab="${savedTab}"]`);
+      if(btn){
+        document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));
+        btn.classList.add("active");
+        document.querySelectorAll(".tab").forEach(x=>x.classList.add("hidden"));
+        $(savedTab).classList.remove("hidden");
+      }
+    }
+    const savedSub=localStorage.getItem("supreme_subtab");
+    if(savedSub){
+      const sbtn=document.querySelector(`.subnav button[data-subtab="${savedSub}"]`);
+      if(sbtn){
+        document.querySelectorAll(".subnav button").forEach(x=>x.classList.remove("active"));
+        sbtn.classList.add("active");
+        document.querySelectorAll(".subtab").forEach(x=>x.classList.add("hidden"));
+        $(savedSub).classList.remove("hidden");
+      }
+    }
+  }catch(e){}
+})();
+
+const botMessages=[];
+function botSay(text,who="bot"){const idx=botMessages.push([who,text])-1;renderChat();return idx}
+function botReplace(idx,text){if(botMessages[idx])botMessages[idx][1]=text;renderChat()}
+function renderChat(){$("chat").innerHTML=botMessages.map(x=>`<div class="bubble ${x[0]}">${esc(x[1])}</div>`).join("");$("chat").scrollTop=$("chat").scrollHeight}
+botSay("Welcome. Load your H2H league, then ask me things like \"predict who finishes top\", \"compare TeamA and TeamB\", streaks, form, or the Carabao Cup bracket — all computed live from your real league data, free. Type \"help\" any time to see everything I understand.");
+$("quick").innerHTML=["Predict who finishes top","Compare two teams","Easiest run of fixtures","Longest winning streak","Most points last month","Create Carabao bracket","Help"].map(x=>`<button>${x}</button>`).join("");
+document.querySelectorAll("#quick button").forEach(b=>b.onclick=()=>answer(b.textContent==="Compare two teams"?`compare ${STANDINGS[0]?.name||"TeamA"} and ${STANDINGS[1]?.name||"TeamB"}`:b.textContent));
+$("ask").onclick=()=>answer($("query").value);$("query").onkeydown=e=>{if(e.key==="Enter")answer($("query").value)};
+$("query").placeholder="Ask about your league…";
+
+function normalizeStandings(d){
+  return (d?.standings?.results||[]).map((x,i)=>({rank:x.rank??i+1,entry:x.entry,name:x.entry_name||"Team",manager:x.player_name||"",total:x.total??0,wins:x.matches_won??0,draws:x.matches_drawn??0,losses:x.matches_lost??0,pointsFor:x.points_for??0}))
+    .filter(x=>x.entry);
+}
+function normalizeMatches(d){
+  return (d?.matches||[]).map(m=>({id:m.id,event:num(m.event),a:m.entry_1_entry,b:m.entry_2_entry,ap:num(m.entry_1_points),bp:num(m.entry_2_points)})).filter(m=>m.event&&m.a&&m.b);
+}
+$("loadLeague").onclick=loadLeague;
+async function loadLeague(){
+  const id=$("leagueId").value.trim();if(!id){$("leagueMsg").textContent="Enter a league ID.";return}
+  localStorage.setItem("supreme_h2h_id",id);$("leagueMsg").textContent="Loading league…";
+  try{
+    LEAGUE=await getJSON(API+"/h2h/"+encodeURIComponent(id));STANDINGS=normalizeStandings(LEAGUE);MATCHES=normalizeMatches(LEAGUE);FORM_CACHE=null;SQUAD_CACHE=null;SQUAD_CACHE_GW=null;
+    if(!STANDINGS.length)throw Error("No teams returned. Check the H2H league ID.");
+    $("leagueMsg").textContent=`Loaded ${LEAGUE.league?.name||"H2H league"} · ${STANDINGS.length} teams · ${LEAGUE.pagesFetched||1} match page(s)`;
+    $("chipTracker").innerHTML='<p class="muted">Not loaded yet — click "Load chip usage".</p>';
+    populateMatchGWSelect();renderStandings();renderCup();renderLiveMatches();
+  }catch(e){$("leagueMsg").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
+}
+/* Mini-league chip tracker: reuses the same /api/histories batch endpoint
+   the Carabao Cup engine already relies on for manager GW scores — each
+   entry's history payload also carries a "chips" array (name + event),
+   which is all that's needed to say who's already burned what. */
+const CHIP_LABEL={wildcard:"Wildcard",freehit:"Free Hit",bboost:"Bench Boost","3xc":"Triple Captain"};
+async function loadChipTracker(){
+  if(!STANDINGS.length){$("chipTracker").innerHTML='<p class="muted">Load the H2H league first.</p>';return}
+  $("chipTracker").innerHTML=`<p class="muted">Loading chip histories for ${STANDINGS.length} managers…</p>`;
+  try{
+    const histories=await getJSON(API+"/histories",{method:"POST",body:JSON.stringify({entryIds:STANDINGS.map(t=>t.entry)})});
+    const rows=STANDINGS.map(t=>{
+      const chips=histories[t.entry]?.chips||[];
+      const used=chips.map(c=>`${CHIP_LABEL[c.name]||c.name} (GW${c.event})`);
+      const usedNames=chips.map(c=>c.name);
+      // Wildcard is the one chip playable twice a season (once per half);
+      // the other three are once-only, so "remaining" checks differ.
+      const remaining=Object.keys(CHIP_LABEL).filter(k=>k==="wildcard"
+        ?usedNames.filter(n=>n==="wildcard").length<2
+        :!usedNames.includes(k)).map(k=>CHIP_LABEL[k]);
+      return {name:t.name,manager:t.manager,used,remaining};
+    }).sort((a,b)=>b.used.length-a.used.length);
+    $("chipTracker").innerHTML='<div class="tableWrap"><table style="min-width:640px"><thead><tr><th>Team</th><th>Chips used</th><th>Still available</th></tr></thead><tbody>'
+      +rows.map(r=>`<tr><td><b>${esc(r.name)}</b><div class="muted" style="font-size:11px">${esc(r.manager)}</div></td><td>${r.used.length?r.used.map(esc).join("<br>"):'<span class="muted">None yet</span>'}</td><td>${r.remaining.length?r.remaining.map(esc).join(", "):'<span class="muted">All used</span>'}</td></tr>`).join("")
+      +'</tbody></table></div><p class="muted" style="margin-top:8px;font-size:11px">Wildcard can be played twice a season (once per half) — "still available" accounts for that; the other three chips are once each.</p>';
+  }catch(e){$("chipTracker").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
+}
+$("loadChips").onclick=loadChipTracker;
+function teamNameByEntry(id){const t=STANDINGS.find(x=>String(x.entry)===String(id));return t?t.name:"Unknown"}
+/* This GW's H2H match for a given entry — used to show the current-round
+   opponent and live score on the standings table. Points come straight from
+   the H2H matches payload, so they track FPL's own live/bonus updates as the
+   backend's cache refreshes. */
+function currentMatch(entry){
+  const gw=GW||1;
+  return MATCHES.find(m=>m.event===gw&&(String(m.a)===String(entry)||String(m.b)===String(entry)))||null;
+}
+/* Standings table shows a *provisional* position while a gameweek is still
+   in progress: each team's official league total plus 3/1/0 points for how
+   their in-progress GW match stands right now (using the same live squad
+   score as the Live GW Matches panel). Once FPL has finished the gameweek
+   AND confirmed bonus points (gwFinished), that live bracket goes away —
+   the official total (which by then already includes the settled result)
+   becomes the only number shown, and the GW score column shows the
+   confirmed final score instead of a recomputed live one. */
+async function renderStandings(){
+  const gw=GW||1;
+  const finished=gwFinished(gw);
+  STANDINGS.sort((a,b)=>a.rank-b.rank);
+  let squads={};
+  if(!finished&&STANDINGS.length){ try{ squads=await getSquads(); }catch{ squads={}; } }
+  const liveScoreOf=entry=>{
+    const cm=currentMatch(entry);
+    if(!cm) return null;
+    if(finished) return String(cm.a)===String(entry)?cm.ap:cm.bp;
+    if(squads[entry]&&squads[entry].picks&&squads[entry].picks.length) return squadLiveTotal(squads[entry].picks,squads[entry].cost);
+    return String(cm.a)===String(entry)?cm.ap:cm.bp;
+  };
+  const rows=STANDINGS.map(t=>{
+    const cm=currentMatch(t.entry);
+    let provTotal=t.total,oppId=null,myLive=null,oppLive=null;
+    if(cm){
+      oppId=String(cm.a)===String(t.entry)?cm.b:cm.a;
+      myLive=liveScoreOf(t.entry);oppLive=liveScoreOf(oppId);
+      if(!finished&&myLive!=null&&oppLive!=null) provTotal=t.total+(myLive>oppLive?3:myLive===oppLive?1:0);
+    }
+    return {...t,provTotal,oppId,myLive,oppLive};
+  });
+  rows.sort((a,b)=>b.provTotal-a.provTotal||b.pointsFor-a.pointsFor||a.rank-b.rank);
+  rows.forEach((t,i)=>t.provRank=i+1);
+  $("standings").innerHTML='<h3>Current standings</h3><div class="tableWrap"><table style="min-width:720px"><thead><tr><th>#</th><th>Team</th><th>Pts</th><th>W-D-L</th><th>GW'+gw+' Opponent</th><th>GW'+gw+' Score</th></tr></thead><tbody>'+rows.map(t=>{
+    const moved=t.provRank-t.rank;
+    const arrow=moved<0?'<span style="color:var(--g)">▲</span>':moved>0?'<span style="color:var(--red)">▼</span>':'<span class="muted">–</span>';
+    const posCell=`${t.provRank} ${arrow}`+(moved!==0?`<div class="muted" style="font-size:10px">was ${t.rank}</div>`:"");
+    const ptsCell=t.provTotal+(t.provTotal!==t.total?` <span class="muted" style="font-size:10px">(${t.total})</span>`:"");
+    let oppCell='<span class="muted">No fixture GW'+gw+'</span>',scoreCell='<span class="muted">—</span>';
+    if(t.oppId!=null){
+      oppCell=`vs <b>${esc(teamNameByEntry(t.oppId))}</b>`;
+      if(t.myLive!=null&&t.oppLive!=null){
+        const color=t.myLive>t.oppLive?"var(--g)":t.myLive<t.oppLive?"var(--red)":"inherit";
+        scoreCell=`<b style="color:${color}">${t.myLive}</b> <span class="muted">-</span> <b>${t.oppLive}</b>`;
+      }
+    }
+    return `<tr><td>${posCell}</td><td><b>${esc(t.name)}</b><div class="muted">${esc(t.manager)}</div></td><td>${ptsCell}</td><td>${t.wins}-${t.draws}-${t.losses}</td><td>${oppCell}</td><td>${scoreCell}</td></tr>`;
+  }).join("")+'</tbody></table><p class="muted" style="padding:8px 10px;font-size:11px">'+(finished?`GW${gw} is final — standings reflect FPL's confirmed result. Ties are broken by total FPL points scored this season.`:`Position and points include this gameweek's in-progress result — the arrow shows movement from the official pre-gameweek standings, and settles once FPL confirms final scores. Ties are broken by total FPL points scored this season.`)+'</p></div>';
+  const picker=$("teamPicker");
+  picker.innerHTML='<option value="">— pick a team —</option>'+STANDINGS.map(t=>`<option value="${t.entry}">${esc(t.name)}</option>`).join("");
+}
+/* Quiet background refresh of just the H2H matches/standings (no message
+   flicker), so the GW opponent + live score on the table stay current
+   without the user re-clicking "Load league". */
+async function refreshLeagueLive(){
+  const id=$("leagueId").value.trim();
+  if(!id||!STANDINGS.length)return;
+  try{
+    const fresh=await getJSON(API+"/h2h/"+encodeURIComponent(id));
+    STANDINGS=normalizeStandings(fresh);MATCHES=normalizeMatches(fresh);
+    renderStandings();renderLiveMatches();
+  }catch(e){/* keep showing last-known data if a background refresh fails */}
+}
+/* A single pick's live points: element's current-event points (which FPL
+   itself updates live as goals/bonus/etc. land) × that pick's multiplier
+   (0 for bench, 2/3 for captain — already reflects Triple Captain/Bench
+   Boost since FPL sets the multiplier field itself for those chips). */
+function pickLivePoints(p){const el=ELEMENTS_BY_ID[p.element];return el?num(el.event_points)*p.multiplier:0}
+function squadLiveTotal(picks,cost){return (picks||[]).filter(p=>p.multiplier>0).reduce((s,p)=>s+pickLivePoints(p),0)-(cost||0)}
+function squadRowsHTML(picks){
+  const sorted=[...(picks||[])].sort((a,b)=>(b.multiplier>0)-(a.multiplier>0)||pickLivePoints(b)-pickLivePoints(a));
+  return sorted.map(p=>{
+    const el=ELEMENTS_BY_ID[p.element];
+    const tag=p.is_captain?" 🅲":p.is_vice_captain?" 🅥":"";
+    return `<div class="plRow${p.multiplier>0?"":" bench"}"><span>${esc(el?.web_name||"—")}${tag}</span><b>${pickLivePoints(p)}</b></div>`;
+  }).join("");
+}
+/* Matches panel: one card per H2H fixture for whichever gameweek is
+   selected in the dropdown (defaults to the current one). For the
+   in-progress current gameweek, scores are computed live from each squad's
+   actual picks and a tap expands both line-ups. For a past — or a
+   finished-but-still-"current" — gameweek, FPL's own confirmed match
+   score is used directly instead: it's already final, so there's no need
+   to re-fetch and recompute every squad's picks. */
+function populateMatchGWSelect(){
+  const sel=$("matchGW");if(!sel)return;
+  const max=GW||1,opts=[];
+  for(let g=1;g<=max;g++){
+    const label=g===GW?(gwFinished(g)?`GW${g} (Final)`:`GW${g} (Live)`):`GW${g}`;
+    opts.push(`<option value="${g}"${g===GW?" selected":""}>${label}</option>`);
+  }
+  sel.innerHTML=opts.join("");
+}
+async function renderLiveMatches(gw){
+  gw=gw||GW||1;
+  const el=$("liveMatches");
+  if(!STANDINGS.length){el.innerHTML='<p class="muted">Load the H2H league first.</p>';return}
+  const fixtures=MATCHES.filter(m=>m.event===gw);
+  if(!fixtures.length){el.innerHTML=`<p class="muted">No H2H fixtures found for GW${gw}.</p>`;return}
+  const isLiveRound=gw===GW&&!gwFinished(gw);
+  $("matchesHeading").textContent=isLiveRound?"Live GW Matches":`GW${gw} Matches`;
+  $("matchesSub").textContent=isLiveRound
+    ?"This gameweek's H2H fixtures with a live score computed from each squad's actual picks — tap a match to see both line-ups' live points. Recalculates as FPL updates player stats."
+    :`GW${gw} is final — scores below are FPL's confirmed result.`;
+  if(!isLiveRound){
+    el.innerHTML=fixtures.map(m=>{
+      const aName=teamNameByEntry(m.a),bName=teamNameByEntry(m.b);
+      const aColor=m.ap>m.bp?"var(--g)":m.ap<m.bp?"var(--red)":"inherit";
+      const bColor=m.bp>m.ap?"var(--g)":m.bp<m.ap?"var(--red)":"inherit";
+      return `<div class="liveMatch" style="cursor:default">
+        <div class="lmHead">
+          <div class="lmTeam"><b>${esc(aName)}</b></div>
+          <div class="lmScore"><b style="color:${aColor}">${m.ap}</b> <span class="muted">-</span> <b style="color:${bColor}">${m.bp}</b></div>
+          <div class="lmTeam" style="text-align:right"><b>${esc(bName)}</b></div>
+        </div>
+      </div>`;
+    }).join("");
+    return;
+  }
+  const openIds=new Set([...el.querySelectorAll(".liveMatch.open")].map(x=>x.dataset.mid));
+  if(!openIds.size) el.innerHTML='<p class="muted">Loading live squads…</p>';
+  try{
+    const squads=await getSquads();
+    el.innerHTML=fixtures.map(m=>{
+      const mid=String(m.id??`${m.event}-${m.a}-${m.b}`);
+      const aName=teamNameByEntry(m.a),bName=teamNameByEntry(m.b);
+      const aSq=squads[m.a]||{picks:[],cost:0},bSq=squads[m.b]||{picks:[],cost:0};
+      const aPicks=aSq.picks,bPicks=bSq.picks;
+      const aLive=squadLiveTotal(aPicks,aSq.cost),bLive=squadLiveTotal(bPicks,bSq.cost);
+      const aColor=aLive>bLive?"var(--g)":aLive<bLive?"var(--red)":"inherit";
+      const bColor=bLive>aLive?"var(--g)":bLive<aLive?"var(--red)":"inherit";
+      const aHit=aSq.cost?` <span class="muted" style="font-size:10px">(-${aSq.cost} hit)</span>`:"";
+      const bHit=bSq.cost?` <span class="muted" style="font-size:10px">(-${bSq.cost} hit)</span>`:"";
+      return `<div class="liveMatch${openIds.has(mid)?" open":""}" data-mid="${mid}">
+        <div class="lmHead">
+          <div class="lmTeam"><b>${esc(aName)}</b>${aHit}</div>
+          <div class="lmScore"><b style="color:${aColor}">${aLive}</b> <span class="muted">-</span> <b style="color:${bColor}">${bLive}</b></div>
+          <div class="lmTeam" style="text-align:right"><b>${esc(bName)}</b>${bHit}</div>
+          <div class="lmCaret">▾</div>
+        </div>
+        <div class="lmBody">
+          <div class="lmSquad">${aPicks.length?squadRowsHTML(aPicks):'<p class="muted" style="font-size:11px">No picks found.</p>'}</div>
+          <div class="lmSquad">${bPicks.length?squadRowsHTML(bPicks):'<p class="muted" style="font-size:11px">No picks found.</p>'}</div>
+        </div>
+      </div>`;
+    }).join("")+'<p class="muted" style="font-size:11px;margin-top:2px">Bonus points can take a while to land after full time — scores here will settle once FPL confirms them.</p>';
+    el.querySelectorAll(".liveMatch").forEach(card=>{
+      card.querySelector(".lmHead").onclick=()=>card.classList.toggle("open");
+    });
+  }catch(e){el.innerHTML='<span class="error">Could not load live squads: '+esc(e.message)+'</span>'}
+}
+$("matchGW").onchange=()=>renderLiveMatches(parseInt($("matchGW").value,10));
+function preGW(gw){
+  const base=STANDINGS.map(t=>({...t,total:0,wins:0,draws:0,losses:0})),m=Object.fromEntries(base.map(t=>[String(t.entry),t]));
+  MATCHES.filter(x=>x.event<gw).forEach(x=>{const a=m[String(x.a)],b=m[String(x.b)];if(!a||!b)return;if(x.ap>x.bp){a.total+=3;a.wins++ ;b.losses++}else if(x.bp>x.ap){b.total+=3;b.wins++;a.losses++}else{a.total++;b.total++;a.draws++;b.draws++}});
+  return base.sort((a,b)=>b.total-a.total||a.rank-b.rank).map((x,i)=>({...x,seed:i+1}));
+}
+function resultsFor(entry){return MATCHES.filter(m=>String(m.a)===String(entry)||String(m.b)===String(entry)).sort((a,b)=>a.event-b.event).map(m=>m.ap===m.bp?"D":String(m.a)===String(entry)?(m.ap>m.bp?"W":"L"):(m.bp>m.ap?"W":"L"))}
+function streak(type,label){let best={len:0,t:null};STANDINGS.forEach(t=>{let c=0;for(const r of resultsFor(t.entry)){if(r===type){c++;if(c>best.len)best={len:c,t}}else c=0}});return best.t?`🔥 Longest ${label} streak: ${best.t.name} — ${best.len} games.`:"I couldn't calculate it from the returned match history."}
+function streakGeneric(ok,label){let best={len:0,t:null};STANDINGS.forEach(t=>{let c=0;for(const r of resultsFor(t.entry)){if(ok(r)){c++;if(c>best.len)best={len:c,t}}else c=0}});return best.t?`🔥 Longest ${label} run: ${best.t.name} — ${best.len} games.`:"I couldn't calculate it from the returned match history."}
+async function lastMonth(){
+  if(!BS)return"Live FPL data is not loaded yet.";
+  const d=new Date(),a=new Date(d.getFullYear(),d.getMonth()-1,1),b=new Date(d.getFullYear(),d.getMonth(),0,23,59,59);
+  const vals=[];
+  const histories=await getJSON(API+"/histories",{method:"POST",body:JSON.stringify({entryIds:STANDINGS.map(t=>t.entry)})});
+  for(const t of STANDINGS){let pts=0;for(const g of (histories[t.entry]?.current||[])){const ev=BS.events.find(e=>e.id===g.event);if(ev&&new Date(ev.deadline_time)>=a&&new Date(ev.deadline_time)<=b)pts+=num(g.points)}vals.push([t.name,pts])}
+  vals.sort((x,y)=>y[1]-x[1]);return"📅 Most FPL points last month:\n"+vals.slice(0,5).map((x,i)=>`${i+1}. ${x[0]} — ${x[1]}`).join("\n");
+}
+
+/* Recent per-manager FPL points (last 6 gameweeks) — a free proxy for
+   "current form", cached per loaded league. */
+async function getForm(){
+  if(FORM_CACHE)return FORM_CACHE;
+  const histories=await getJSON(API+"/histories",{method:"POST",body:JSON.stringify({entryIds:STANDINGS.map(t=>t.entry)})});
+  const out={};
+  STANDINGS.forEach(t=>{out[t.entry]=(histories[t.entry]?.current||[]).slice(-6).map(g=>({gw:g.event,points:num(g.points)}))});
+  FORM_CACHE=out;return out;
+}
+/* Each manager's actual current starting XI, fetched once and cached, so we
+   can score real squads with the same fixture-aware engine as the Player
+   Board — no external AI required, just real data plus real math. */
+let SQUAD_CACHE=null,SQUAD_CACHE_GW=null;
+async function getSquads(){
+  if(SQUAD_CACHE&&SQUAD_CACHE_GW===GW)return SQUAD_CACHE;
+  const out={};
+  await Promise.all(STANDINGS.map(async t=>{
+    try{
+      const d=await getJSON(API+`/entry/${t.entry}/picks/${GW}`);
+      out[t.entry]={picks:d.picks||[],cost:num(d.entry_history?.event_transfers_cost)};
+    }
+    catch{ out[t.entry]={picks:[],cost:0}; }
+  }));
+  SQUAD_CACHE=out;SQUAD_CACHE_GW=GW;return out;
+}
+function squadPower(picks){
+  if(!ROWS.length)return 0;
+  const byId=new Map(ROWS.map(r=>[r.id,r]));
+  let total=0;
+  picks.forEach(p=>{ if(p.multiplier>0){ const info=byId.get(p.element); if(info) total+=info.score*p.multiplier; } });
+  return total;
+}
+function normalize(rows,key){
+  const vals=rows.map(x=>x[key]),min=Math.min(...vals),max=Math.max(...vals);
+  return rows.map(x=>({...x,[key+"N"]:max>min?(x[key]-min)/(max-min)*100:50}));
+}
+/* Power ranking: blends current H2H standing (40%), recent FPL form (30%),
+   and real current squad strength via the Player Board scoring engine (30%).
+   Entirely free — no external API calls, just the FPL public data you
+   already have loaded. */
+async function predictTop(){
+  if(!STANDINGS.length){botSay("Load the H2H league first so I have real teams to rank.");return}
+  const idx=botSay("Crunching standings, recent form, and real squads…");
+  try{
+    if(!ROWS.length)await loadBase();
+    const [form,squads]=await Promise.all([getForm(),getSquads()]);
+    let rows=STANDINGS.map(t=>{
+      const recent=form[t.entry]||[];
+      const avgRecent=recent.length?recent.reduce((a,g)=>a+g.points,0)/recent.length:0;
+      return {...t,avgRecent,squadScore:squadPower(squads[t.entry]?.picks||[])};
+    });
+    rows=normalize(rows,"total");rows=normalize(rows,"avgRecent");rows=normalize(rows,"squadScore");
+    rows.forEach(r=>r.power=r.totalN*0.4+r.avgRecentN*0.3+r.squadScoreN*0.3);
+    rows.sort((a,b)=>b.power-a.power);
+    const top=rows.slice(0,5);
+    const lines=top.map((t,i)=>`${i+1}. ${esc(t.name)} — H2H #${t.rank} (${t.total} pts), recent form ${t.avgRecent.toFixed(1)} pts/GW, squad power ${t.squadScoreN.toFixed(0)}/100`);
+    botReplace(idx,`📈 Power ranking (H2H standing + recent form + real current squad strength):\n${lines.join("\n")}\n\nTop pick right now: ${top[0].name}. This blends real data but form and injuries swing fast — treat it as a snapshot, not a certainty.`);
+  }catch(e){ botReplace(idx,"I couldn't complete that — "+e.message); }
+}
+/* Fuzzy-match a team/manager name mentioned in free text against the loaded league. */
+function findTeam(text){
+  const l=text.toLowerCase();
+  return STANDINGS.find(t=>l.includes(t.name.toLowerCase())||(t.manager&&l.includes(t.manager.toLowerCase())));
+}
+function compareTeams(q){
+  const l=q.toLowerCase();
+  let a=null,b=null;
+  for(const t of STANDINGS){
+    if(l.includes(t.name.toLowerCase())||(t.manager&&l.includes(t.manager.toLowerCase()))){ if(!a)a=t; else if(t.entry!==a.entry){b=t;break} }
+  }
+  if(!a||!b){botSay("Name two teams from your league and I'll compare them — e.g. \"compare "+(STANDINGS[0]?.name||"Team A")+" and "+(STANDINGS[1]?.name||"Team B")+"\".");return false}
+  const h2h=MATCHES.filter(m=>(String(m.a)===String(a.entry)&&String(m.b)===String(b.entry))||(String(m.a)===String(b.entry)&&String(m.b)===String(a.entry)));
+  let aw=0,bw=0,dr=0;
+  h2h.forEach(m=>{const ap=String(m.a)===String(a.entry)?m.ap:m.bp,bp=String(m.a)===String(a.entry)?m.bp:m.ap;if(ap>bp)aw++;else if(bp>ap)bw++;else dr++});
+  const rec=h2h.length?`Head-to-head this season: ${a.name} ${aw}-${dr}-${bw} ${b.name} (${h2h.length} meeting${h2h.length>1?"s":""}).`:"They haven't played each other yet this season.";
+  botSay(`⚔️ ${esc(a.name)} vs ${esc(b.name)}\n${a.name}: #${a.rank}, ${a.total} pts (${a.wins}W ${a.draws}D ${a.losses}L)\n${b.name}: #${b.rank}, ${b.total} pts (${b.wins}W ${b.draws}D ${b.losses}L)\n${rec}`);
+  return true;
+}
+async function fixtureOutlook(){
+  if(!STANDINGS.length){botSay("Load the H2H league first.");return}
+  const idx=botSay("Checking squads' upcoming fixtures…");
+  try{
+    if(!ROWS.length)await loadBase();
+    const squads=await getSquads();
+    const byId=new Map(ROWS.map(r=>[r.id,r]));
+    const rows=STANDINGS.map(t=>{
+      const picks=(squads[t.entry]?.picks||[]).filter(p=>p.multiplier>0);
+      const eases=picks.map(p=>byId.get(p.element)?.ease).filter(v=>v!=null);
+      return {name:t.name,avgEase:eases.length?eases.reduce((a,b)=>a+b,0)/eases.length:0};
+    }).sort((a,b)=>b.avgEase-a.avgEase);
+    botReplace(idx,"📅 Squad fixture outlook (best run of games first, based on their current XI):\n"+rows.slice(0,10).map((t,i)=>`${i+1}. ${esc(t.name)} — ease ${t.avgEase.toFixed(1)}/5`).join("\n"));
+  }catch(e){ botReplace(idx,"I couldn't complete that — "+e.message); }
+}
+
+const CUP_RULES={r1:9,r16:15,qf:24,sf:29,final:35};
+// Bumped whenever the shape of the saved CUP object changes (e.g. adding
+// the ball-draw/ref structure). A saved draw from an older schema version
+// is structurally incompatible — loading it as-is produces exactly the
+// blank/stale boxes this was built to prevent — so it's discarded and a
+// fresh draw is made instead, rather than silently rendering broken data.
+const CUP_SCHEMA_VERSION=3;
+function stateKey(){return "supreme_carabao_"+($("leagueId").value.trim()||"unknown")}
+function saveCup(){localStorage.setItem(stateKey(),JSON.stringify(CUP))}
+function loadSaved(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(stateKey())||"null");
+    if(saved&&saved.schemaVersion!==CUP_SCHEMA_VERSION)return null;
+    return saved;
+  }catch{return null}
+}
+function pairR1(a){return [[a[0],a[7]],[a[1],a[6]],[a[2],a[5]],[a[3],a[4]]]}
+// True random draw (Fisher–Yates), not a seeded bracket position. Called
+// once at draw time and the resulting order is persisted in CUP state, so
+// it doesn't reshuffle on every reload — a draw only happens once.
+function shuffleArr(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+// Randomly draws the field into pairs — a genuine draw, not a seed-based
+// bracket. Order of the array itself doesn't matter for display (each
+// team's own table position/seed is what gets shown, see matchHTML), this
+// just decides *who plays whom*.
+function shuffleDraw(arr){
+  const drawn=shuffleArr(arr);
+  const pairs=[];
+  for(let i=0;i<drawn.length;i+=2)pairs.push([drawn[i],drawn[i+1]]);
+  return pairs;
+}
+function makeMatch(a,b,round){return {a,b,round,status:"pending",as:null,bs:null,win:null}}
+function teamByEntry(id){return STANDINGS.find(t=>String(t.entry)===String(id))}
+function lockedSeedTable(){
+  const pre=preGW(9);
+  return pre.map((t,i)=>({...t,seed:i+1}));
+}
+function initialCup(){
+  const seeds=lockedSeedTable();
+  if(seeds.length<20)throw Error("The Carabao Cup requires a 20-team H2H league.");
+  const bottom=seeds.slice(12,20), top12=seeds.slice(0,12);
+  const r1=shuffleDraw(bottom).map(([a,b])=>makeMatch(a,b,9));
+  // The Round of 16 draw happens the same moment as Round 1 — a real cup
+  // draws the whole bracket on paper before any ties are played. Its 4
+  // "unknown" slots aren't blank: they're a specific R1 tie, shown as both
+  // feeder positions (e.g. "Position 17/Position 20") until that tie is
+  // decided, at which point the slot collapses to the single winning
+  // position (see materializeR16Refs). We deliberately stop the lookahead
+  // there — QF/SF/Final are only drawn once their own predecessor round is
+  // fully complete, so the bracket doesn't get cluttered with speculative
+  // slots several rounds out.
+  const r1Refs=r1.map((m,i)=>({isRef:true,matchIndex:i,seedA:m.a.seed,seedB:m.b.seed}));
+  // Two-sided bracket: the top-12 byes and the 4 R1 refs are split into a
+  // left pool and a right pool (6 byes + 2 refs each) and each side is
+  // drawn independently, rather than one flat 16-team shuffle sliced in
+  // half afterwards. This guarantees each side is a genuinely separate
+  // 8-team draw, not just an arbitrary slice of one shared shuffle.
+  // CUP.r16 stays a flat 8-match array — matches 0-3 are the left side,
+  // 4-7 are the right side — so the existing QF/SF/Final pairing logic
+  // (which already advances winners in adjacent pairs) naturally keeps
+  // each side self-contained all the way to the Final.
+  const shuffledTop=shuffleArr(top12);
+  const leftTop=shuffledTop.slice(0,6), rightTop=shuffledTop.slice(6,12);
+  const shuffledRefs=shuffleArr(r1Refs);
+  const leftRefs=shuffledRefs.slice(0,2), rightRefs=shuffledRefs.slice(2,4);
+  const r16Left=shuffleDraw([...leftTop,...leftRefs]).map(([a,b])=>makeMatch(a,b,15));
+  const r16Right=shuffleDraw([...rightTop,...rightRefs]).map(([a,b])=>makeMatch(a,b,15));
+  const r16=[...r16Left,...r16Right];
+  return {rules:CUP_RULES,seeds,top12,r1,r16,qf:null,sf:null,final:null,champion:null,schemaVersion:CUP_SCHEMA_VERSION};
+}
+// Once an R1 tie completes, replace its placeholder ref in the R16 bracket
+// with the actual winning team object — the box will still only show that
+// team's position number (not name) until R16's own GW15 lock, via the
+// normal matchHTML reveal logic.
+function materializeR16Refs(){
+  if(!CUP.r16)return;
+  CUP.r16=CUP.r16.map(m=>({
+    ...m,
+    a:m.a?.isRef?(winner(CUP.r1[m.a.matchIndex])||m.a):m.a,
+    b:m.b?.isRef?(winner(CUP.r1[m.b.matchIndex])||m.b):m.b,
+  }));
+}
+async function resolveMatches(matches,gw){
+  if(!matches?.length)return [];
+  const ids=[...new Set(matches.flatMap(m=>[m.a?.entry,m.b?.entry]).filter(Boolean))];
+  const histories=await getJSON(API+"/histories",{method:"POST",body:JSON.stringify({entryIds:ids})});
+  return matches.map(m=>{
+    const ap=(histories[m.a.entry]?.current||[]).find(x=>x.event===gw)?.points;
+    const bp=(histories[m.b.entry]?.current||[]).find(x=>x.event===gw)?.points;
+    if(ap==null||bp==null)return {...m,status:"waiting",as:ap??null,bs:bp??null};
+    const win=ap>bp?"a":bp>ap?"b":(m.a.seed<m.b.seed?"a":"b");
+    return {...m,status:"complete",as:ap,bs:bp,win};
+  });
+}
+function winner(m){return m?.status==="complete"&&m.win?m[m.win]:null}
+function nextPair(a,b){return makeMatch(a,b,a.seed<b.seed?a.seed:b.seed)}
+async function advanceCup(){
+  if(!CUP) CUP=initialCup();
+  const now=GW;
+  if(now>=9 && CUP.r1.some(m=>m.status!=="complete")) CUP.r1=await resolveMatches(CUP.r1,9);
+  materializeR16Refs();
+  if(CUP.r16 && now>=15) CUP.r16=await resolveMatches(CUP.r16,15);
+  if(!CUP.qf && CUP.r16?.every(m=>m.status==="complete")){
+    const w=CUP.r16.map(winner);
+    CUP.qf=[makeMatch(w[0],w[1],24),makeMatch(w[2],w[3],24),makeMatch(w[4],w[5],24),makeMatch(w[6],w[7],24)];
+  }
+  if(CUP.qf && now>=24) CUP.qf=await resolveMatches(CUP.qf,24);
+  if(!CUP.sf && CUP.qf?.every(m=>m.status==="complete")){
+    const w=CUP.qf.map(winner);
+    CUP.sf=[makeMatch(w[0],w[1],29),makeMatch(w[2],w[3],29)];
+  }
+  if(CUP.sf && now>=29) CUP.sf=await resolveMatches(CUP.sf,29);
+  if(!CUP.final && CUP.sf?.every(m=>m.status==="complete")){
+    const w=CUP.sf.map(winner);CUP.final=[makeMatch(w[0],w[1],35)];
+  }
+  if(CUP.final && now>=35) {
+    CUP.final=await resolveMatches(CUP.final,35);
+    if(CUP.final[0]?.status==="complete") CUP.champion=winner(CUP.final[0]);
+  }
+  saveCup();renderCup();
+}
+async function fetchServerCup(){
+  const id=($("leagueId").value||"").trim();
+  if(!id)return null;
+  const d=await getJSON(API+"/cup/"+encodeURIComponent(id));
+  return d.draw||null;
+}
+async function createCup(){
+  if(STANDINGS.length<20){botSay("The Carabao Cup requires a 20-team H2H league.");return}
+  const id=($("leagueId").value||"").trim();
+  try{
+    let draw=await fetchServerCup();
+    if(draw){CUP=draw;saveCup();await advanceCup();botSay("🏆 The Carabao Cup draw has already been made and is locked. Showing the official bracket.");return}
+    if(!gwFinished(8)){botSay("The draw can only be made once GW8 is finished and its points are confirmed, so the table is final. Try again after that.");return}
+    const headers={};
+    const keyInput=sessionStorage.getItem("drawKey");
+    if(keyInput)headers["x-draw-key"]=keyInput;
+    const fresh=initialCup();
+    let res;
+    try{res=await getJSON(API+"/cup/"+encodeURIComponent(id)+"/draw",{method:"POST",headers,body:JSON.stringify({cup:fresh})})}
+    catch(e){
+      if(/draw key/i.test(e.message)){
+        const k=prompt("Enter the draw key to make the Carabao Cup draw:");
+        if(!k){botSay("Draw cancelled.");return}
+        sessionStorage.setItem("drawKey",k);
+        res=await getJSON(API+"/cup/"+encodeURIComponent(id)+"/draw",{method:"POST",headers:{"x-draw-key":k},body:JSON.stringify({cup:fresh})});
+      }else throw e;
+    }
+    CUP=res.draw;saveCup();renderCup();
+    const names=CUP.r1.map(m=>`${m.a.name} (#${m.a.seed}) vs ${m.b.name} (#${m.b.seed})`).join("\n");
+    botSay((res.alreadyDrawn?"🏆 The draw had just been made by someone else — showing the official one.\n":"🏆 The draw is done and locked (table as it stood after GW8). Round 1 is decided by normal FPL points in GW9:\n")+names);
+    await advanceCup();
+  }catch(e){botSay("Couldn't reach the server to make or load the draw, so nothing was created: "+e.message)}
+}
+// namesLocked controls whether a team's identity is revealed (e.g. GW9,
+// once Round 1 decides who fills every R16 slot); resultLocked controls
+// whether the score/winner highlight shows (only once that tie is actually
+// played — GW15 for R16, even though the names were known since GW9).
+// resultLocked defaults to namesLocked so R1/QF/SF/Final — where both
+// happen at the same gameweek — can still call this with one flag.
+function seedName(seed){const t=(CUP?.seeds||[]).find(q=>q.seed===seed);return t?t.name:`Seed ${seed}`}
+function matchHTML(m,namesLocked=true,resultLocked=namesLocked){
+  if(!m)return'<div class="match tbd"><div class="row">TBD</div><div class="row">TBD</div></div>';
+  const label=x=>{
+    if(!x)return"TBD";
+    if(x.isRef)return`${seedName(x.seedA)} / ${seedName(x.seedB)}`; // tie not yet decided: show both teams
+    return x.name; // names are always shown, the draw is public from the start
+  };
+  const scoreOf=(x,s)=>(!x||x.isRef)?"—":(resultLocked?(s??"—"):"");
+  return`<div class="match"><div class="row ${resultLocked&&m.win==="a"?"win":""}"><span>${esc(label(m.a))}</span><b>${scoreOf(m.a,m.as)}</b></div><div class="vsdiv">vs</div><div class="row ${resultLocked&&m.win==="b"?"win":""}"><span>${esc(label(m.b))}</span><b>${scoreOf(m.b,m.bs)}</b></div></div>`;
+}
+// Pads a round's match array up to its full fixed size with nulls, so the
+// bracket always shows the complete skeleton of blank/dashed "TBD" boxes —
+// even rounds that haven't been drawn yet — and each box fills in on its
+// own once the round before it completes.
+function padMatches(arr,n){const out=[...(arr||[])];while(out.length<n)out.push(null);return out}
+// Groups a column's match cards into connector-line units: every 2 matches
+// become a .bPair (feeding one box in the next column), a lone leftover
+// becomes a .bSingle. mirror=true flips the connector lines onto the left
+// edge, for the right-hand side of the bracket.
+function connectCol(htmlArr,mirror){
+  const cls=mirror?" rtl":"";
+  const out=[];
+  for(let i=0;i<htmlArr.length;i+=2){
+    if(htmlArr[i+1]!==undefined)out.push(`<div class="bPair${cls}">${htmlArr[i]}${htmlArr[i+1]}</div>`);
+    else out.push(`<div class="bSingle${cls}">${htmlArr[i]}</div>`);
+  }
+  return out.join("");
+}
+function renderCup(){
+  const el=$("cupContent");
+  if(!SHARED_VIEW && !STANDINGS.length){el.innerHTML="<h2>🏆 Supreme Carabao Cup</h2><p class='muted'>Load your H2H league first.</p>";return}
+  if(!CUP){el.innerHTML="<div class='trophy'>🏆</div><h2>Supreme Carabao Cup</h2><p class='muted'>Round 1 uses H2H positions after GW8; later rounds use the locked bracket.</p><button class='btn gold' id='makeCup'>Create Competition</button>";$("makeCup").onclick=createCup;return}
+  const status=`Current GW${GW}. Results are shown only when the required gameweek has data.`;
+  const r1Locked=GW>=CUP.rules.r1, r16Locked=GW>=CUP.rules.r16;
+  const shareBar=SHARED_VIEW
+    ?`<div class="notice" style="margin-bottom:14px"><b>👀 Viewing a shared bracket</b> — this is a read-only copy someone sent you, not live-connected to any league. <button class="btn" id="exitShared" style="margin-left:8px">Load my own league instead</button></div>`
+    :`<div class="notice" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b>Share this bracket:</b>
+        <button class="btn" id="shareCupText">📋 Copy as text</button>
+      </div>`;
+  el.innerHTML=`${shareBar}<div class="grid g4"><div class="stat"><small>Round 1</small><b>GW9</b><small>Seeds 13–20</small></div><div class="stat"><small>Round of 16</small><b>GW15</b></div><div class="stat"><small>Quarterfinal</small><b>GW24</b></div><div class="stat"><small>Final</small><b>GW35</b><small>🏆</small></div></div>
+  <div class="notice" style="margin:14px 0"><b>Rule:</b> ties are decided by normal FPL points in the listed gameweek, not H2H points. Round 1 and Round of 16 are drawn together once table positions lock after GW8; each round's matchups and results appear as soon as they're known. ${esc(status)}</div>
+  ${CUP.champion?`<div class="champ"><div class="trophy">🏆</div><h2>${esc(CUP.champion.name)}</h2><div class="muted">Champion · GW35</div></div>`:""}
+  <div id="bracketCapture">
+  <div class="r1standalone">
+    <div class="roundTitle">Round 1 · GW9 (seeds 13–20, feeds the Round of 16 below)</div>
+    <div class="r1grid">${(CUP.r1||[]).map(m=>matchHTML(m,r1Locked)).join("")}</div>
+  </div>
+  <div class="bracket"><div class="bracket2">
+  ${(()=>{
+    // Every round is padded to its full fixed size (4/4/2/2/1/1/1) so the
+    // whole bracket skeleton — including rounds not drawn yet — renders as
+    // dashed "TBD" boxes immediately, then fills in round by round.
+    const r16=padMatches(CUP.r16,8),qf=padMatches(CUP.qf,4),sf=padMatches(CUP.sf,2),final=padMatches(CUP.final,1);
+    const r16L=r16.slice(0,4),r16R=r16.slice(4,8);
+    const qfL=qf.slice(0,2),qfR=qf.slice(2,4);
+    const sfL=sf.slice(0,1),sfR=sf.slice(1,2);
+    // R16 names reveal once Round 1 is decided (GW9) — every R16 slot is
+    // known by then, byes included — but the score/win only appears once
+    // that tie is actually played at GW15. mirror=true draws the
+    // connector lines on the left edge instead of the right, for the
+    // right-hand side of the bracket (QF→R16 reading outward from Final).
+    const col=(title,matches,namesLocked,resultLocked,mirror)=>`<div class="bColWrap"><div class="roundTitle">${title}</div><div class="bCol">${connectCol(matches.map(m=>matchHTML(m,namesLocked,resultLocked)),mirror)}</div></div>`;
+    return `<div class="bSide left">
+      ${col("R16 · GW15",r16L,r1Locked,r16Locked,false)}
+      ${col("QF · GW24",qfL,true,true,false)}
+      ${col("SF · GW29",sfL,true,true,false)}
+    </div>
+    <div class="bFinalWrap">
+      <div class="roundTitle">Final · GW35</div>
+      <div class="bFinalCol">${final.map(m=>matchHTML(m)).join("")}</div>
+    </div>
+    <div class="bSide right">
+      ${col("SF · GW29",sfR,true,true,true)}
+      ${col("QF · GW24",qfR,true,true,true)}
+      ${col("R16 · GW15",r16R,r1Locked,r16Locked,true)}
+    </div>`;
+  })()}
+  </div></div>
+  </div>`;
+  if(SHARED_VIEW){
+    $("exitShared").onclick=()=>{SHARED_VIEW=false;history.replaceState(null,"",location.pathname+location.search);fetchServerCup().then(d=>{CUP=d;renderCup()}).catch(()=>{CUP=null;renderCup()})};
+    return;
+  }
+  $("shareCupText").onclick=async()=>{
+    try{await navigator.clipboard.writeText(cupToText());botToastOn("shareCupText","Copied!")}
+    catch{botToastOn("shareCupText","Couldn't copy to clipboard.")}
+  };
+}
+// Small inline confirmation flash on a share button, so copying feels
+// confirmed without needing a separate toast/notification system.
+function botToastOn(id,msg){const b=$(id);if(!b)return;const orig=b.textContent;b.textContent=msg;setTimeout(()=>{if($(id))$(id).textContent=orig},2200)}
+function cupToText(){
+  const name=LEAGUE?.league?.name||"H2H League";
+  const line=m=>{
+    if(!m)return "TBD vs TBD";
+    const label=x=>!x?"TBD":x.isRef?`${seedName(x.seedA)} / ${seedName(x.seedB)}`:x.name;
+    const score=(x,s)=>(!x||x.isRef||s==null)?"":` (${s})`;
+    return `${esc0(label(m.a))}${score(m.a,m.as)} vs ${esc0(label(m.b))}${score(m.b,m.bs)}`;
+  };
+  const esc0=s=>s; // plain text, no HTML escaping needed here
+  const section=(title,arr)=>arr?.length?`\n${title}\n`+arr.map(m=>"• "+line(m)).join("\n"):"";
+  let out=`🏆 ${name} — Supreme Carabao Cup\n`;
+  if(CUP.champion) out+=`\nChampion: ${CUP.champion.name} 🏆\n`;
+  out+=section("Round 1 (GW9)",CUP.r1);
+  out+=section("Round of 16 (GW15)",CUP.r16);
+  out+=section("Quarterfinal (GW24)",CUP.qf);
+  out+=section("Semifinal (GW29)",CUP.sf);
+  out+=section("Final (GW35)",CUP.final);
+  return out.trim();
+}
+// If the page was opened via a shared-bracket link, decode it and jump
+// straight to a read-only view of that bracket — no league load needed.
+function tryLoadSharedCup(){
+  const m=location.hash.match(/shared_cup=([^&]+)/);
+  if(!m)return false;
+  try{
+    const payload=JSON.parse(decodeURIComponent(escape(atob(m[1]))));
+    if(!payload?.cup)return false;
+    CUP=payload.cup;SHARED_VIEW=true;LEAGUE={league:{name:payload.leagueName}};
+    document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.tab==="cup"));
+    document.querySelectorAll(".tab").forEach(s=>s.classList.toggle("hidden",s.id!=="cup"));
+    renderCup();
+    return true;
+  }catch{return false}
+}
+async function autoRestoreCup(){if(!STANDINGS.length)return;try{CUP=await fetchServerCup()}catch{CUP=null}if(CUP){await advanceCup()}else renderCup()}
+const HELP_TEXT="Here's everything I can do, free, from your real league data:\n\n"
+  +"• \"predict who finishes top\" / \"who's going to win\" / \"strongest team\" — power ranking\n"
+  +"• \"compare TeamA and TeamB\" / \"TeamA vs TeamB\" — head-to-head breakdown\n"
+  +"• \"easiest run of fixtures\" / \"who has the hardest fixtures\" — schedule outlook\n"
+  +"• \"longest winning streak\" / \"losing streak\" / \"unbeaten run\" — streaks\n"
+  +"• \"most points last month\" — recent form leaderboard\n"
+  +"• \"show the table\" / \"who's top\" / \"who's bottom\" — standings\n"
+  +"• \"create Carabao bracket\" — cup bracket\n"
+  +"• \"who should I captain\" — top captaincy picks (works before a league is loaded)\n"
+  +"• \"is it a blank/double gameweek\" — next GW blank/double outlook (works before a league is loaded)\n"
+  +"• \"who should I bring in for £7m\" / \"transfers under budget\" — transfer planner (works before a league is loaded)\n"
+  +"• \"when should I wildcard/bench boost/free hit\" — chip advisor (needs your team analyzed first)\n"
+  +"• just type a team or manager name — a quick summary of that team\n\n"
+  +"I'm a free rule-based bot, not a general AI, so I look for phrases like these rather than understanding truly anything you type.";
+/* Blank/double gameweek and captaincy answers reuse the same ROWS/FXIDX
+   scoring data that powers the Fixtures and Captaincy tabs — this is just
+   wiring, not new logic, so it stays in sync with those tabs automatically. */
+function gwBlankDoubleAnswer(){
+  if(!BS||!FXIDX||!Object.keys(TEAMS).length) return "I don't have fixture data loaded yet — give it a second and try again.";
+  const nextGW=GW+1,blanks=[],doubles=[];
+  Object.values(TEAMS).forEach(t=>{
+    const fx=(FXIDX[t.id]||[]).filter(f=>f.event===nextGW);
+    if(fx.length===0)blanks.push(t.name);else if(fx.length>=2)doubles.push(t.name);
+  });
+  if(!blanks.length&&!doubles.length)return `GW${nextGW} looks like a normal full gameweek — no blanks or doubles that I can see.`;
+  const bits=[];
+  if(blanks.length)bits.push(`🚫 Blank for ${blanks.length} team${blanks.length>1?"s":""}: ${blanks.join(", ")}`);
+  if(doubles.length)bits.push(`⚡ Double for ${doubles.length} team${doubles.length>1?"s":""}: ${doubles.join(", ")}`);
+  return `GW${nextGW} outlook:\n`+bits.join("\n");
+}
+function captainAnswer(){
+  if(!ROWS.length)return "I don't have player data loaded yet — give it a second and try again.";
+  const pool=ROWS.filter(r=>r.status==="a"&&r.chance>=75&&r.rel>0.5&&r.next.length>0)
+    .map(r=>({...r,capScore:r.ep*(0.5+0.5*r.rel)*(r.chance/100)*(1+0.15*Math.max(0,r.next.length-1))}))
+    .sort((a,b)=>b.capScore-a.capScore);
+  if(!pool.length)return "I couldn't find a confident captaincy pick right now — check the Captaincy tab for the full breakdown.";
+  const top=pool.slice(0,3);
+  const ownNote=r=>MY_OWNED_IDS.size?(MY_OWNED_IDS.has(r.id)?" (you own them)":" (not in your squad)"):"";
+  return "🎖️ Top captaincy picks right now:\n"+top.map((r,i)=>`${i+1}. ${esc(r.name)} (${esc(r.team)}) — ${r.capScore.toFixed(1)} xP${ownNote(r)}`).join("\n")
+    +"\n\nFull breakdown, including differentials, is on the Captaincy tab.";
+}
+// Pulls a £ budget out of free text ("who can I get for 7", "£6.5m budget",
+// "under 8m") — defaults to the bank on file for the analyzed team, or a
+// sensible mid-price fallback if no team's been loaded and no number given.
+function extractBudget(text){
+  const m=text.match(/£?\s*(\d+(?:\.\d+)?)\s*m?\b/);
+  if(m)return Math.max(3.5,Math.min(15,parseFloat(m[1])));
+  return MY_BANK>=3.5?MY_BANK:5.0;
+}
+function transferAnswer(text){
+  if(!ROWS.length)return "I don't have player data loaded yet — give it a second and try again.";
+  const budget=extractBudget(text);
+  const posMatch=text.match(/\b(gkp|goalkeeper|def|defender|mid|midfielder|fwd|forward)\b/);
+  const posMap={gkp:"GKP",goalkeeper:"GKP",def:"DEF",defender:"DEF",mid:"MID",midfielder:"MID",fwd:"FWD",forward:"FWD"};
+  const pos=posMatch?posMap[posMatch[1]]:"ALL";
+  const list=ROWS.filter(r=>(pos==="ALL"||r.pos===pos)&&r.price<=budget+0.001&&r.status==="a"&&r.chance>=75&&!MY_OWNED_IDS.has(r.id))
+    .sort((a,b)=>b.score-a.score).slice(0,5);
+  if(!list.length)return `Nobody${pos!=="ALL"?" in "+pos:""} within £${budget.toFixed(1)}m clears my availability bar right now — try a higher budget.`;
+  return `💸 Best options${pos!=="ALL"?" ("+pos+")":""} within £${budget.toFixed(1)}m:\n`
+    +list.map((r,i)=>`${i+1}. ${esc(r.name)} (${esc(r.team)}) £${r.price.toFixed(1)}m — score ${r.score.toFixed(1)}, ${fixtureLabel(r.ease)}`).join("\n")
+    +"\n\nFull list is on the Team Analyzer tab's Transfer Planner.";
+}
+function chipAnswer(){
+  if(!MY_SQUAD.length)return "Analyze your team on the Team Analyzer tab first — chip timing is based on your actual squad's fixtures, not a generic list.";
+  const LOOKAHEAD=8;let bestFH={gw:0,blanks:-1},bestBB={gw:0,doubles:-1,names:[]};
+  for(let g=GW+1; g<GW+1+LOOKAHEAD; g++){
+    let blanks=0,doubles=0,names=[];
+    MY_SQUAD.forEach(p=>{
+      const fx=(FXIDX[p.info.teamId]||[]).filter(f=>f.event===g);
+      if(fx.length===0)blanks++;else if(fx.length>=2){doubles++;names.push(p.info.name)}
+    });
+    if(blanks>bestFH.blanks)bestFH={gw:g,blanks};
+    if(doubles>bestBB.doubles)bestBB={gw:g,doubles,names};
+  }
+  const bits=[];
+  bits.push(bestFH.blanks>=3?`🆓 Free Hit looks best around GW${bestFH.gw} (${bestFH.blanks}/15 blanking).`:"🆓 No gameweek has enough of your squad blanking yet to clearly call for Free Hit.");
+  bits.push(bestBB.doubles>=3?`⚡ Bench Boost/Triple Captain looks best around GW${bestBB.gw} (${bestBB.doubles}/15 doubling: ${bestBB.names.slice(0,4).map(esc).join(", ")}).`:"⚡ No strong double-gameweek stack yet — worth rechecking closer to the time.");
+  return bits.join("\n")+"\n\nFull GW-by-GW table is on the Team Analyzer tab's Chip Advisor.";
+}
+function greetingReply(){
+  const hour=new Date().getHours();
+  const g=hour<12?"Morning!":hour<18?"Afternoon!":"Evening!";
+  return `${g} ${STANDINGS.length?"Your league is loaded — ask me about the table, a prediction, or two teams to compare.":"Load your H2H league on this tab first, then ask away."} Type "help" to see everything I can answer.`;
+}
+async function answer(q){
+  q=q.trim();if(!q)return;botSay(q,"user");$("query").value="";
+  const l=q.toLowerCase().trim();
+
+  // These work even before a league is loaded.
+  if(/^(hi|hello|hey+|yo|sup|good\s?(morning|afternoon|evening)|howdy|greetings)\b[!.? ]*$/.test(l)||l==="hi claude"){botSay(greetingReply());return}
+  if(l.includes("help")||l.includes("what can you do")||l.includes("what do you do")||l.includes("commands")||l.includes("options")||l==="?"){botSay(HELP_TEXT);return}
+  if(/\b(thanks|thank you|thx|cheers|ta)\b/.test(l)){botSay("Anytime! Ask me anything else about the league.");return}
+
+  // Gameweek-specific questions use player/fixture data (ROWS/FXIDX), not
+  // the H2H league, so they work even before a league has been loaded.
+  if(l.includes("blank")||l.includes("double gameweek")||l.includes("double gw")||l.includes("dgw")||l.includes("bgw")||(l.includes("this week")&&(l.includes("blank")||l.includes("double")))){botSay(gwBlankDoubleAnswer());return}
+  if(l.includes("captain")||(l.includes("who should i")&&l.includes("this week"))){botSay(captainAnswer());return}
+  if(l.includes("wildcard")||l.includes("bench boost")||l.includes("triple captain")||l.includes("free hit")||l.includes("which chip")||l.includes("what chip")){botSay(chipAnswer());return}
+  if(/\b(transfer|bring in|afford|budget|who (can|should) i (buy|get|sign))\b/.test(l)){botSay(transferAnswer(l));return}
+
+  if(!STANDINGS.length){botSay("Load the H2H league first (enter your league ID above and hit Load) so I have the teams and manager IDs — then ask away, e.g. \"who's top\" or \"predict who finishes top\".");return}
+
+  if(l.includes("carabao")||l.includes("bracket")||l.includes("cup")||l.includes("round 1")){await createCup();return}
+
+  if(/\bvs\b|\bversus\b/.test(l)||l.includes("compare")||l.includes("head to head")||l.includes("head-to-head")||l.includes("h2h record")||l.includes("who's better")||l.includes("who is better")||l.includes("better team")){if(compareTeams(q)!==false)return}
+
+  if(l.includes("predict")||l.includes("most likely")||l.includes("who will win")||l.includes("who is going to win")||l.includes("who's going to win")||l.includes("gonna win")||l.includes("win the league")||l.includes("win the title")||l.includes("champion")||l.includes("favourite")||l.includes("favorite")||l.includes("finish top")||l.includes("finish first")||l.includes("power rank")||l.includes("strongest squad")||l.includes("strongest team")||l.includes("best squad")||l.includes("best team")||l.includes("in form")||l.includes("in-form")||l.includes("on form")||(l.includes("based on")&&(l.includes("form")||l.includes("team")))){await predictTop();return}
+
+  if(l.includes("fixture")||l.includes("schedule")||l.includes("easiest run")||l.includes("hardest run")||l.includes("run of games")||l.includes("upcoming game")||l.includes("games coming up")||l.includes("next few gw")||l.includes("who do")&&l.includes("play")){await fixtureOutlook();return}
+
+  if(l.includes("winning streak")||l.includes("consecutive win")||l.includes("win streak")||l.includes("hot streak")||l.includes("on a roll")||l.includes("on a run")){botSay(streak("W","winning"));return}
+  if(l.includes("losing streak")||l.includes("consecutive loss")||l.includes("lose streak")||l.includes("cold streak")||l.includes("bad run")||l.includes("losing run")){botSay(streak("L","losing"));return}
+  if(l.includes("unbeaten")||l.includes("undefeated")||l.includes("no losses")){botSay(streakGeneric(v=>v==="W"||v==="D","unbeaten"));return}
+
+  if(l.includes("last month")||l.includes("past month")||l.includes("previous month")){try{botSay(await lastMonth())}catch(e){botSay("I couldn't retrieve the manager histories: "+e.message)}return}
+
+  if(l.includes("bottom")||l.includes("worst team")||l.includes("last place")||l.includes("relegation")){
+    const bottom=[...STANDINGS].sort((a,b)=>a.rank-b.rank).slice(-5).reverse();
+    botSay("📉 Bottom of the table:\n"+bottom.map(t=>`${t.rank}. ${t.name} — ${t.total} pts (${t.wins}W ${t.draws}D ${t.losses}L)`).join("\n"));return
+  }
+  if(l.includes("top")||l.includes("standing")||l.includes("table")||l.includes("leaderboard")||l.includes("first place")||l.includes("leading")||l.includes("rank")){botSay("Current H2H top 10:\n"+STANDINGS.slice(0,10).map(t=>`${t.rank}. ${t.name} — ${t.total} pts (${t.wins}W ${t.draws}D ${t.losses}L)`).join("\n"));return}
+
+  const team=findTeam(q);
+  if(team){botSay(`${esc(team.name)} (${team.manager||"manager"}): #${team.rank} in H2H, ${team.total} pts, ${team.wins}W ${team.draws}D ${team.losses}L. Ask me to "compare ${team.name} and <another team>" for more, or "predict" for a full power ranking.`);return}
+
+  botSay("I didn't catch a command in that. I'm a free rule-based bot rather than a general AI, so I look for specific phrases — type \"help\" to see the full list, e.g. \"predict who finishes top\", \"compare TeamA and TeamB\", \"who's top of the table\".");
+}
+$("leagueId").value=localStorage.getItem("supreme_h2h_id")||"";
+renderButtons();
+if(!tryLoadSharedCup())renderCup();
+loadBase();
+// If a league ID was already saved from a previous visit, load it
+// automatically once base data is ready, so a refresh doesn't dump you back
+// to an empty H2H tab — mirrors the same auto-load the Team Analyzer does
+// for a saved team ID, just below.
+(function autoLoadSavedLeague(){
+  const saved=$("leagueId").value.trim();
+  if(!saved)return;
+  const tryLoad=()=>{ if(BS) loadLeague(); else setTimeout(tryLoad,300); };
+  tryLoad();
+})();
+
+/* ---- Team Analyzer ---- */
+$("teamId").value=localStorage.getItem("supreme_team_id")||"";
+$("dashTeamId").value=localStorage.getItem("supreme_team_id")||"";
+$("teamPicker").onchange=()=>{if($("teamPicker").value)$("teamId").value=$("teamPicker").value};
+$("analyzeTeam").onclick=()=>{const id=$("teamId").value.trim();if(!id){$("teamMsg").textContent="Enter a team ID or pick one from a loaded league.";return}localStorage.setItem("supreme_team_id",id);analyzeTeam(id)};
+// If a team ID was already saved from a previous visit, load it automatically
+// once base data is ready, so returning users land straight on their squad.
+(function autoLoadSavedTeam(){
+  const saved=$("teamId").value.trim();
+  if(!saved)return;
+  const tryLoad=()=>{ if(BS&&ROWS.length) analyzeTeam(saved); else setTimeout(tryLoad,300); };
+  tryLoad();
+})();
+function percentileFor(pos,val,byPos){const arr=byPos[pos]||[];if(!arr.length)return 50;let c=0;for(const v of arr)if(v<=val)c++;return Math.round(c/arr.length*100)}
+function fixtureLabel(ease){return ease>=3.3?"good fixtures":ease<=2.3?"tough fixtures":"mixed fixtures"}
+
+/* ---------------- Optimal XI ----------------
+   Reuses the same per-player `score` already computed for the Player Board —
+   no separate model. Given a locked 15-man squad, brute-forces every legal
+   formation (1 GKP, 3-5 DEF, 2-5 MID, 1-3 FWD, 11 total) and keeps whichever
+   one maximizes summed score, taking the top-scoring players available at
+   each position. 36 formation combinations max, so this is instant. */
+function computeOptimalXI(squad){
+  const byPos={GKP:[],DEF:[],MID:[],FWD:[]};
+  squad.forEach(p=>{if(byPos[p.info.pos])byPos[p.info.pos].push(p.info)});
+  Object.values(byPos).forEach(a=>a.sort((x,y)=>y.score-x.score));
+  let best=null;
+  for(let d=3;d<=5;d++)for(let m=2;m<=5;m++)for(let f=1;f<=3;f++){
+    if(d+m+f!==10)continue;
+    if(byPos.GKP.length<1||byPos.DEF.length<d||byPos.MID.length<m||byPos.FWD.length<f)continue;
+    const xi=[...byPos.GKP.slice(0,1),...byPos.DEF.slice(0,d),...byPos.MID.slice(0,m),...byPos.FWD.slice(0,f)];
+    const total=xi.reduce((s,p)=>s+p.score,0);
+    if(!best||total>best.total)best={total,xi,formation:`${d}-${m}-${f}`};
+  }
+  return best;
+}
+function renderOptimalXI(){
+  const panel=$("optimalXIPanel");
+  if(!MY_SQUAD.length){panel.style.display="none";return}
+  panel.style.display="";
+  const best=computeOptimalXI(MY_SQUAD);
+  if(!best){$("optimalXI").innerHTML='<p class="muted">Could not build a valid XI from this squad\'s current data.</p>';return}
+  const bestIds=new Set(best.xi.map(p=>p.id));
+  const actualXI=MY_SQUAD.filter(p=>p.multiplier>0).map(p=>p.info);
+  const actualIds=new Set(actualXI.map(p=>p.id));
+  const sameXI=bestIds.size===actualIds.size&&[...bestIds].every(id=>actualIds.has(id));
+  const sortedXI=[...best.xi].sort((a,b)=>b.score-a.score);
+  const capId=sortedXI[0]?.id,viceId=sortedXI[1]?.id;
+  const rows=["GKP","DEF","MID","FWD"].flatMap(pos=>best.xi.filter(p=>p.pos===pos)).map(p=>{
+    const tag=p.id===capId?" 🅲":p.id===viceId?" 🅥":"";
+    const isNew=!actualIds.has(p.id);
+    return `<div class="plRow"><span>${esc(p.name)}${tag}${isNew?' <span class="tag" style="margin-left:4px">bench→XI</span>':""}</span><b>${p.score.toFixed(1)}</b></div>`;
+  }).join("");
+  const swaps=best.xi.filter(p=>!actualIds.has(p.id));
+  const dropped=actualXI.filter(p=>!bestIds.has(p.id));
+  const swapNote=swaps.length?`<p class="notice" style="margin-top:10px">Model would start <b>${swaps.map(p=>esc(p.name)).join(", ")}</b> over <b>${dropped.map(p=>esc(p.name)).join(", ")}</b> this gameweek.</p>`
+    :'<p class="notice" style="margin-top:10px">Matches your actual starting XI already.</p>';
+  $("optimalXI").innerHTML=`
+    <div class="grid g2" style="margin-bottom:4px">
+      <div class="stat"><small>Suggested formation</small><b>${best.formation}</b></div>
+      <div class="stat"><small>Projected score</small><b>${best.total.toFixed(1)}</b></div>
+    </div>
+    ${rows}
+    ${sameXI?'':swapNote}
+    <p class="muted" style="margin-top:8px;font-size:11px">🅲 suggested captain · 🅥 suggested vice — the two highest-scoring players in this XI.</p>
+  `;
+}
+
+/* ---------------- Personal Dashboard ----------------
+   A single-team snapshot built entirely from endpoints already used
+   elsewhere: /api/entry/:id (also used by Team Analyzer) and
+   /api/entry/:id/history (also used by the Chip Tracker/Carabao Cup). */
+async function loadDashboard(){
+  const id=$("dashTeamId").value.trim();
+  if(!validId(id)){$("dashMsg").innerHTML='<span class="error">Team ID must be numeric.</span>';return}
+  localStorage.setItem("supreme_team_id",id);
+  $("dashMsg").textContent="Loading dashboard…";$("dashResult").innerHTML="";
+  try{
+    if(!BS||!ROWS.length)await loadBase();
+    const [info,hist]=await Promise.all([getJSON(API+"/entry/"+id),getJSON(API+"/entry/"+id+"/history")]);
+    const cur=hist.current||[];
+    const last=cur[cur.length-1],prev=cur[cur.length-2];
+    if(!last)throw Error("No gameweek history yet for this team.");
+    const rankMove=prev?prev.overall_rank-last.overall_rank:0; // positive = rank improved (moved up)
+    const rankArrow=rankMove>0?`<span style="color:var(--g)">▲ ${rankMove.toLocaleString()}</span>`:rankMove<0?`<span style="color:var(--red)">▼ ${Math.abs(rankMove).toLocaleString()}</span>`:'<span class="muted">–</span>';
+    const teamName=info.name||"This team",managerName=[info.player_first_name,info.player_last_name].filter(Boolean).join(" ");
+    const value=((info.last_deadline_bank??0)+(info.last_deadline_value??0))/10;
+    const chips=hist.chips||[];
+    // Same visibility rule the app already documents for picks: FPL's public
+    // entry API only reveals a chip once its gameweek's deadline has passed
+    // (this stops rivals copying a wildcard/chip play mid-gameweek). So a
+    // chip just activated for a gameweek that hasn't locked yet won't show
+    // here until that deadline passes — that's FPL withholding it, not a
+    // bug in this reading of the data.
+    const remaining=Object.keys(CHIP_LABEL).filter(k=>k==="wildcard"?chips.filter(c=>c.name==="wildcard").length<2:!chips.some(c=>c.name===k)).map(k=>CHIP_LABEL[k]);
+    // Reuse the exact same optimal-XI model for a one-line captain steer,
+    // but only bother fetching this team's picks for it — no need to run
+    // the full Team Analyzer flow just for a captain suggestion.
+    let capNote="";
+    try{
+      const gw=GW+1;
+      let picksData;
+      try{picksData=await getJSON(API+`/entry/${id}/picks/${gw}`)}catch{picksData=await getJSON(API+`/entry/${id}/picks/${GW}`)}
+      const byId=new Map(ROWS.map(r=>[r.id,r]));
+      const squad=(picksData.picks||[]).map(p=>({...p,info:byId.get(p.element)})).filter(p=>p.info);
+      const best=computeOptimalXI(squad);
+      if(best){const top=[...best.xi].sort((a,b)=>b.score-a.score)[0];if(top)capNote=`<div class="stat"><small>Captain lean</small><b>${esc(top.name)}</b></div>`}
+    }catch{/* captain steer is a bonus, not core — fail quietly */}
+    const last5=cur.slice(-5);
+    const last5HTML=last5.map(g=>`<div class="stat" style="padding:10px;min-width:96px;flex:0 0 auto"><small>GW${g.event}</small><b style="font-size:20px">${g.points}</b><small>rank ${g.overall_rank?.toLocaleString()??"–"}</small></div>`).join("");
+    $("dashMsg").textContent=`${teamName}${managerName?" · "+managerName:""}`;
+    $("dashResult").innerHTML=`
+      <div class="grid g4">
+        <div class="stat"><small>Overall rank</small><b>${last.overall_rank?.toLocaleString()??"–"}</b><small>${rankArrow} since last GW</small></div>
+        <div class="stat"><small>Total points</small><b>${last.total_points}</b></div>
+        <div class="stat"><small>Last GW points</small><b>${last.points}</b>${last.points_on_bench?`<small>${last.points_on_bench} left on bench</small>`:""}</div>
+        <div class="stat"><small>Team value</small><b>£${value.toFixed(1)}m</b></div>
+      </div>
+      <div class="grid g2" style="margin-top:14px">
+        ${capNote?`<div class="panel"><h3 style="margin-top:0">Next gameweek</h3><div class="grid g2">${capNote}<div class="stat"><small>Chips still available</small><b style="font-size:16px">${remaining.length?remaining.join(", "):"None"}</b></div></div></div>`:`<div class="panel"><h3 style="margin-top:0">Chips still available</h3><p>${remaining.length?remaining.join(", "):"None"}</p></div>`}
+        <div class="panel"><h3 style="margin-top:0">Last 5 gameweeks</h3><div style="display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px">${last5HTML}</div></div>
+      </div>
+      <p class="muted" style="font-size:11px;margin-top:10px">A chip played for a gameweek that hasn't locked yet won't show here until that gameweek's deadline passes — FPL withholds it until then to stop other managers copying a last-minute chip play, the same rule that applies to picks in Team Analyzer.</p>
+    `;
+  }catch(e){$("dashMsg").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
+}
+$("loadDashboard").onclick=loadDashboard;
+
+async function analyzeTeam(id){
+  if(!validId(id)){$("teamMsg").innerHTML='<span class="error">Team ID must be numeric.</span>';return}
+  $("teamMsg").textContent="Analyzing team…";$("teamResult").innerHTML="";
+  try{
+    if(!BS||!ROWS.length) await loadBase();
+    // FPL only exposes a manager's picks for a gameweek once that gameweek's
+    // deadline has passed — this is intentional on FPL's part, to stop
+    // transfer-copying. So a rival's already-made changes for the *next*
+    // gameweek are invisible to everyone (including us) until its deadline
+    // hits. We still try GW+1 first in case it's just become visible; if
+    // not, we fall back to the last known locked squad and say so clearly,
+    // rather than silently showing stale data as if it were current.
+    let gw=GW+1, usedFallback=false, picksData;
+    const info=await getJSON(API+"/entry/"+id);
+    try{
+      picksData=await getJSON(API+`/entry/${id}/picks/${gw}`);
+    }catch{
+      gw=GW; usedFallback=true;
+      picksData=await getJSON(API+`/entry/${id}/picks/${gw}`);
+    }
+    const byId=new Map(ROWS.map(r=>[r.id,r]));
+    const byPos={};ROWS.forEach(r=>{(byPos[r.pos]??=[]).push(r.score)});
+    const squad=(picksData.picks||[]).map(p=>({...p,info:byId.get(p.element)})).filter(p=>p.info);
+    if(!squad.length) throw Error("Could not match this team's squad to current player data.");
+    const xi=squad.filter(p=>p.multiplier>0);
+    const bench=squad.filter(p=>p.multiplier===0);
+    const withPct=xi.map(p=>({...p,pct:percentileFor(p.info.pos,p.info.score,byPos)}));
+    const teamName=info.name||"This team";const managerName=[info.player_first_name,info.player_last_name].filter(Boolean).join(" ");
+    const bank=((info.last_deadline_bank??0)/10).toFixed(1);const value=((info.last_deadline_value??0)/10).toFixed(1);
+    const rating=Math.round(withPct.reduce((a,p)=>a+p.pct*(p.multiplier>=2?2:1),0)/withPct.reduce((a,p)=>a+(p.multiplier>=2?2:1),0));
+    const label=rating>=75?"Elite":rating>=60?"Strong":rating>=40?"Average":rating>=25?"Below average":"Weak";
+    const sorted=[...withPct].sort((a,b)=>b.pct-a.pct);
+    const trackNote=p=>{
+      const bits=[];
+      if(p.info.setPieceDuty)bits.push("on set-piece duty");
+      if(p.info.dreamteamCount>=3)bits.push(`${p.info.dreamteamCount}× Team of the Week`);
+      if(p.info.valueSeason>=8)bits.push(`£${p.info.valueSeason.toFixed(1)} pts/£m all season`);
+      return bits.length?` ${bits.join(", ")}.`:"";
+    };
+    const strengths=sorted.slice(0,3).map(p=>`⭐ ${esc(p.info.name)} (${p.info.pos}) — ${p.pct}th percentile for the position, ${fixtureLabel(p.info.ease)}.${trackNote(p)}`);
+    const weakByScore=[...withPct].sort((a,b)=>a.pct-b.pct).slice(0,3);
+    const injuryFlags=squad.filter(p=>p.info.chance<75).map(p=>`⚠️ ${esc(p.info.name)} — ${p.info.chance}% chance of playing next round (injury/rotation doubt).`);
+    const fixtureFlags=xi.filter(p=>p.info.ease<=2.3).map(p=>`📅 ${esc(p.info.name)} faces ${fixtureLabel(p.info.ease)} over the lookahead window.`);
+    // A weak-scoring player who's still nailed-on for set pieces or has a
+    // strong season-long record is a "hold through the dip" case, not a
+    // "sell now" case — so that gets said explicitly rather than lumped in
+    // with players who are just underperforming, full stop.
+    const weaknesses=[...weakByScore.map(p=>{
+      const holdCase=p.info.setPieceDuty||p.info.valueSeason>=6;
+      const base=`🔻 ${esc(p.info.name)} (${p.info.pos}) — only ${p.pct}th percentile among ${p.info.pos}s right now.`;
+      return holdCase?`${base} Track record and role suggest this may be a form dip worth riding out rather than an automatic sell —${trackNote(p)}`:base;
+    }),...injuryFlags,...fixtureFlags].slice(0,6);
+    const ownedIds=new Set(squad.map(p=>p.element));
+    MY_TEAM_ID=id;MY_OWNED_IDS=ownedIds;MY_SQUAD=squad;MY_BANK=parseFloat(bank)||0;
+    $("planBudget").value=Math.max(3.5,Math.min(15,MY_BANK||5)).toFixed(1);$("planBudgetLabel").textContent=$("planBudget").value;
+    renderCaptaincy();renderDifferentials();renderTransferPlan();renderChipAdvisor();renderOptimalXI();
+    const weakSlots=weakByScore.slice(0,2);
+    const suggestions=weakSlots.map(w=>{
+      const budget=w.info.price+parseFloat(bank);
+      // Don't recommend replacing a set-piece taker or a proven season-long
+      // performer just because this week's score dipped — but if their own
+      // role/record already earns a "hold" case above, still show upgrade
+      // options; just don't let it look like the only reasonable move.
+      const cands=ROWS.filter(r=>r.pos===w.info.pos&&!ownedIds.has(r.id)&&r.price<=budget+0.001&&r.score>w.info.score)
+        .sort((a,b)=>b.score-a.score).slice(0,3);
+      return {out:w.info,budget,cands};
+    }).filter(s=>s.cands.length);
+    const candLine=c=>{
+      const bits=[`score ${c.score.toFixed(1)}`,fixtureLabel(c.ease)];
+      if(c.setPieceDuty)bits.push("set-piece duty");
+      if(c.dreamteamCount>=3)bits.push(`${c.dreamteamCount}× ToW`);
+      return `→ ${esc(c.name)} (${c.team}) £${c.price.toFixed(1)}m — ${bits.join(", ")}`;
+    };
+    let sugHTML=suggestions.length?suggestions.map(s=>{
+      const holdWarning=(s.out.setPieceDuty||s.out.valueSeason>=6)
+        ?`<div class="muted" style="font-size:11px;margin-bottom:4px">Note: ${esc(s.out.name)} has a track record/role that argues for patience — weigh that against these options rather than selling on form alone.</div>`:"";
+      return `<div class="notice" style="margin-bottom:8px"><b>Consider replacing ${esc(s.out.name)}</b> (£${s.out.price.toFixed(1)}m, budget incl. bank ≈£${s.budget.toFixed(1)}m):${holdWarning}<br>`+s.cands.map(candLine).join("<br>")+`</div>`;
+    }).join(""):`<p class="muted">No clear upgrades found within budget for your weakest players right now.</p>`;
+    const gwNote=usedFallback
+      ?` · showing GW${gw} (last locked squad — this manager's GW${GW+1} transfers, if any, aren't public until that gameweek's deadline passes)`
+      :` · GW${gw} (next gameweek — already locked in)`;
+    $("teamMsg").textContent=`Loaded ${teamName}${managerName?" · "+managerName:""}${gwNote} · Team value £${value}m · Bank £${bank}m`;
+    $("teamResult").innerHTML=`
+      <div class="panel"><div class="grid g4">
+        <div class="stat"><small>Rating</small><b>${rating}/100</b><small>${label}</small></div>
+        <div class="stat"><small>Squad value</small><b>£${value}m</b></div>
+        <div class="stat"><small>Bank</small><b>£${bank}m</b></div>
+        <div class="stat"><small>Bench players</small><b>${bench.length}</b></div>
+      </div></div>
+      <div class="grid g2">
+        <div class="panel"><h3>Strengths</h3>${strengths.map(s=>`<p class="notice" style="margin-bottom:7px">${s}</p>`).join("")||"<p class='muted'>Nothing standout found.</p>"}</div>
+        <div class="panel"><h3>Weaknesses & risks</h3>${weaknesses.map(s=>`<p class="notice" style="margin-bottom:7px">${s}</p>`).join("")||"<p class='muted'>No major concerns found.</p>"}</div>
+      </div>
+      <div class="panel"><h3>Suggested transfers</h3>${sugHTML}</div>
+    `;
+  }catch(e){$("teamMsg").innerHTML='<span class="error">'+esc(e.message)+'</span>'}
+}
+</script>
+</body>
+</html>
